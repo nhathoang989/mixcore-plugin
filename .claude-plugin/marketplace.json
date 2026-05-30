@@ -1,0 +1,15 @@
+{
+  "name": "mixcore",
+  "metadata": {
+    "description": "Mixcore CMS skill suite — content, code, MixDB, RAG, and doc-sync skills for the mixcore-cloud platform, bundled as one installable plugin."
+  },
+  "owner": {
+    "name": "Mixcore"
+  },
+  "plugins": [
+    {
+      "name": "mixcore",
+      "source": "."
+    }
+  ]
+}
