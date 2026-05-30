@@ -11,7 +11,7 @@ allowed-tools:
 ---
 
 You are adding EF Core migrations in **mixcore-cloud**.
-All commands run from the repo root: `C:\Tinku\Git\mixcore\sources\mixcore-cloud`.
+All commands run from the mixcore-cloud repo root.
 
 ---
 
