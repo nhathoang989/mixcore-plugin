@@ -7,7 +7,7 @@ allowed-tools:
 ---
 
 You are helping with .NET CLI operations in the **mixcore-cloud** solution (`src/mixcore.sln`).
-All commands run from the repo root: `C:\Tinku\Git\mixcore\sources\mixcore-cloud`.
+All commands run from the mixcore-cloud repo root.
 
 ## Build
 

@@ -12,7 +12,7 @@ allowed-tools:
 ---
 
 You are writing tests for the **mixcore-cloud** solution.
-All paths are relative to the repo root: `C:\Tinku\Git\mixcore\sources\mixcore-cloud`.
+All paths are relative to the mixcore-cloud repo root.
 
 ---
 

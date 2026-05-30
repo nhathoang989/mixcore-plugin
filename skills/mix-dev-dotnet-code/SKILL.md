@@ -12,7 +12,7 @@ allowed-tools:
 ---
 
 You are implementing **C# 12 / .NET 10** code for **mixcore-cloud**.
-All paths are relative to: `C:\Tinku\Git\mixcore\sources\mixcore-cloud`.
+All paths are relative to: the **mixcore-cloud** solution root.
 
 ---
 
