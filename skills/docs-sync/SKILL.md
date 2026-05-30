@@ -1,11 +1,11 @@
 ---
 name: docs-sync
-description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and wwwroot/system-prompts/ (in-app Mix AI engine) MUST mirror each other. Trigger on "update docs", "update skill", "sync instructions", "keep docs in sync", editing any system-prompts/instructions/*.md or mixcore:* SKILL/reference file, adding a new skill or instruction, or whenever you detect drift between the two locations. Sibling routers: mixcore:guide (content CRUD via MCP) · mixcore:dev (source-code feature work).
+description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and wwwroot/system-prompts/ (in-app Mix AI engine) MUST mirror each other. Trigger on "update docs", "update skill", "sync instructions", "keep docs in sync", editing any system-prompts/instructions/*.md or mixcore:* SKILL/reference file, adding a new skill or instruction, or whenever you detect drift between the two locations. Sibling routers: mixcore:mixcore (content CRUD via MCP) · mixcore:mixdev (source-code feature work).
 ---
 
 # Mixcore Documentation Sync
 
-> **Scope:** this is the **documentation** sibling of the router triad — CRUD developer docs and keep the two locations consistent. Siblings: **`mixcore:guide`** (content CRUD via MCP tools) · **`mixcore:dev`** (AI edits source code to implement features).
+> **Scope:** this is the **documentation** sibling of the router triad — CRUD developer docs and keep the two locations consistent. Siblings: **`mixcore:mixcore`** (content CRUD via MCP tools) · **`mixcore:mixdev`** (AI edits source code to implement features).
 
 Mixcore CMS has **two documentation locations** that must stay in sync. They serve different audiences but share the same ground truth:
 
@@ -78,7 +78,7 @@ system-prompts/
     │   └── widget-template.md
     └── workflows/
         ├── ai-content-editor.md
-        └── mixcore:build-site.md
+        └── mixcore:mix-mcp-build-site.md
 ```
 
 ### `wwwroot/mixcontent/documents/wiki/`
@@ -113,24 +113,24 @@ wiki/
 
 | When you change… | Also update… |
 |---|---|
-| `plugins/mixcore/skills/cms/references/razor-rules.md` | `system-prompts/instructions/templates/razor-syntax-guidelines.md` |
-| `plugins/mixcore/skills/cms/references/mixdb-in-razor.md` | `system-prompts/instructions/templates/mixdb-template.md` |
-| `plugins/mixcore/skills/cms/references/data-loading.md` | `system-prompts/instructions/mixdb/data-loading-guide.md` |
-| `plugins/mixcore/skills/cms/references/content-creation.md` | `system-prompts/instructions/content/pages.md`, `content/modules.md`, `content/posts.md` |
-| `plugins/mixcore/skills/cms/references/form-templates.md` | `system-prompts/instructions/templates/form-template.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/razor-rules.md` | `system-prompts/instructions/templates/razor-syntax-guidelines.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/mixdb-in-razor.md` | `system-prompts/instructions/templates/mixdb-template.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/data-loading.md` | `system-prompts/instructions/mixdb/data-loading-guide.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/content-creation.md` | `system-prompts/instructions/content/pages.md`, `content/modules.md`, `content/posts.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/form-templates.md` | `system-prompts/instructions/templates/form-template.md` |
 | MCP tool signatures (live via ToolSearch) | `system-prompts/mcp/` files |
-| `plugins/mixcore/skills/db/SKILL.md` | `system-prompts/instructions/mixdb/overview.md`, `database-creation-guide.md` |
-| `plugins/mixcore/skills/blazor-app/SKILL.md` | No direct counterpart — note architectural facts in `system-prompts/instructions/overview/mixcore-cms-overview.md` |
-| `plugins/mixcore/skills/guide/SKILL.md` | `system-prompts/instructions/start-here.md` (agent protocol section) |
-| `plugins/mixcore/skills/dev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
-| `plugins/mixcore/skills/dotnet-code/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (coding standards, EF patterns) |
-| `plugins/mixcore/skills/module/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (module skeleton, controller/service base-class signatures) |
-| `system-prompts/instructions/start-here.md` | `plugins/mixcore/skills/guide/SKILL.md` (routing rules, checklist) |
-| `system-prompts/instructions/developer/developer-guide.md` | `plugins/mixcore/skills/dotnet-code/SKILL.md` and `plugins/mixcore/skills/dev/SKILL.md` |
-| `system-prompts/instructions/developer/mcp-tools-reference.md` | `plugins/mixcore/skills/dotnet-code/references/` (MCP tool authoring) |
+| `plugins/mixcore/skills/mix-mcp-db/SKILL.md` | `system-prompts/instructions/mixdb/overview.md`, `database-creation-guide.md` |
+| `plugins/mixcore/skills/mix-dev-blazor-app/SKILL.md` | No direct counterpart — note architectural facts in `system-prompts/instructions/overview/mixcore-cms-overview.md` |
+| `plugins/mixcore/skills/mixcore/SKILL.md` | `system-prompts/instructions/start-here.md` (agent protocol section) |
+| `plugins/mixcore/skills/mixdev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
+| `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (coding standards, EF patterns) |
+| `plugins/mixcore/skills/mix-dev-module/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (module skeleton, controller/service base-class signatures) |
+| `system-prompts/instructions/start-here.md` | `plugins/mixcore/skills/mixcore/SKILL.md` (routing rules, checklist) |
+| `system-prompts/instructions/developer/developer-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` and `plugins/mixcore/skills/mixdev/SKILL.md` |
+| `system-prompts/instructions/developer/mcp-tools-reference.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/references/` (MCP tool authoring) |
 | `system-prompts/instructions/developer/infrastructure-providers.md` | `docs/04-mixcore-cloud-technical-architecture.md` and `docs/services/cloud-service-providers.md` |
-| `system-prompts/instructions/mixdb/*.md` | `plugins/mixcore/skills/db/SKILL.md` and `plugins/mixcore/skills/cms/references/` |
-| `system-prompts/instructions/templates/*.md` | `plugins/mixcore/skills/cms/references/` |
+| `system-prompts/instructions/mixdb/*.md` | `plugins/mixcore/skills/mix-mcp-db/SKILL.md` and `plugins/mixcore/skills/mix-mcp-cms/references/` |
+| `system-prompts/instructions/templates/*.md` | `plugins/mixcore/skills/mix-mcp-cms/references/` |
 | `system-prompts/agent/*.md` | No skill counterpart — server-only LLM prompts |
 | `system-prompts/mcp/*.md` | MCP tool signatures (live via ToolSearch) |
 

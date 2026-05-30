@@ -35,21 +35,21 @@ Two routers sit on top and delegate to the leaf skills:
 
 | Skill | Invoke | Role |
 |---|---|---|
-| `mixcore:guide` | `/mixcore:guide` | **Content router** — templates, pages, modules, posts, MixDB, wiki (MCP tools) |
-| `mixcore:dev` | `/mixcore:dev` | **Code router** — C#, Blazor, modules, migrations, tests |
+| `mixcore:mixcore` | `/mixcore:mixcore` | **Content router** — templates, pages, modules, posts, MixDB, wiki (MCP tools) |
+| `mixcore:mixdev` | `/mixcore:mixdev` | **Code router** — C#, Blazor, modules, migrations, tests |
 | `mixcore:docs-sync` | `/mixcore:docs-sync` | Keep `plugins/mixcore/skills/` ↔ `wwwroot/system-prompts/` docs consistent |
-| `mixcore:cms` | `/mixcore:cms` | MCP-first website building — templates, schemas, content, smart queries |
-| `mixcore:db` | `/mixcore:db` | MixDB dynamic tables, columns, relationships, row CRUD |
-| `mixcore:ai` | `/mixcore:ai` | AI chat widget — SiteKnowledgeHub SignalR, streaming, auth/token |
-| `mixcore:rag` | `/mixcore:rag` | Site wiki / knowledge base — search, create, read, list, delete |
-| `mixcore:spa` | `/mixcore:spa` | Embed a built SPA (Vite/React/Vue/Svelte) with `layoutId=null` |
-| `mixcore:build-site` | `/mixcore:build-site` | Complete website from a brief — phased plan + schema + templates + pages |
-| `mixcore:module` | `/mixcore:module` | Scaffold a module (new project or add to existing) |
-| `mixcore:dotnet-code` | `/mixcore:dotnet-code` | C# 12 / .NET 10 — ViewModels, CQRS handlers, EF Core |
-| `mixcore:dotnet-cli` | `/mixcore:dotnet-cli` | `dotnet` build / test / run / migrations / packages |
-| `mixcore:migration` | `/mixcore:migration` | EF Core migrations across all 4 provider contexts |
-| `mixcore:tests` | `/mixcore:tests` | xUnit controller / migration / installation tests |
-| `mixcore:blazor-app` | `/mixcore:blazor-app` | Blazor Web App components, pages, services, render modes |
-| `mixcore:blazor-blueprint` | `/mixcore:blazor-blueprint` | shadcn-style dashboards via BlazorBlueprint.Components |
+| `mixcore:mix-mcp-cms` | `/mixcore:mix-mcp-cms` | MCP-first website building — templates, schemas, content, smart queries |
+| `mixcore:mix-mcp-db` | `/mixcore:mix-mcp-db` | MixDB dynamic tables, columns, relationships, row CRUD |
+| `mixcore:mix-mcp-ai` | `/mixcore:mix-mcp-ai` | AI chat widget — SiteKnowledgeHub SignalR, streaming, auth/token |
+| `mixcore:mix-mcp-rag` | `/mixcore:mix-mcp-rag` | Site wiki / knowledge base — search, create, read, list, delete |
+| `mixcore:mix-mcp-spa` | `/mixcore:mix-mcp-spa` | Embed a built SPA (Vite/React/Vue/Svelte) with `layoutId=null` |
+| `mixcore:mix-mcp-build-site` | `/mixcore:mix-mcp-build-site` | Complete website from a brief — phased plan + schema + templates + pages |
+| `mixcore:mix-dev-module` | `/mixcore:mix-dev-module` | Scaffold a module (new project or add to existing) |
+| `mixcore:mix-dev-dotnet-code` | `/mixcore:mix-dev-dotnet-code` | C# 12 / .NET 10 — ViewModels, CQRS handlers, EF Core |
+| `mixcore:mix-dev-dotnet-cli` | `/mixcore:mix-dev-dotnet-cli` | `dotnet` build / test / run / migrations / packages |
+| `mixcore:mix-dev-migration` | `/mixcore:mix-dev-migration` | EF Core migrations across all 4 provider contexts |
+| `mixcore:mix-dev-tests` | `/mixcore:mix-dev-tests` | xUnit controller / migration / installation tests |
+| `mixcore:mix-dev-blazor-app` | `/mixcore:mix-dev-blazor-app` | Blazor Web App components, pages, services, render modes |
+| `mixcore:mix-dev-blazor-blueprint` | `/mixcore:mix-dev-blazor-blueprint` | shadcn-style dashboards via BlazorBlueprint.Components |
 
 See each skill's `SKILL.md` under `skills/` for details.
