@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "mixcore",
-      "source": "."
+      "source": "./"
     }
   ]
 }
