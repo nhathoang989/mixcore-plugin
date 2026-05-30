@@ -55,3 +55,30 @@ Two routers sit on top and delegate to the leaf skills:
 | `mixcore:mix-dev-blazor-blueprint` | `/mixcore:mix-dev-blazor-blueprint` | shadcn-style dashboards via BlazorBlueprint.Components |
 
 See each skill's `SKILL.md` under `skills/` for details.
+
+## How it works
+
+You usually don't invoke leaf skills directly — you describe a task (or type a router
+command) and a **router** delegates:
+
+- **`mixcore`** (content) — resolves the Mixcore MCP server (see
+  [`skills/mixcore/mcp-prefix.md`](skills/mixcore/mcp-prefix.md)), searches the site wiki,
+  loads live site state, then invokes the matching `mix-mcp-*` leaf (templates, MixDB,
+  pages/modules/posts, wiki, AI widget).
+- **`mixdev`** (code) — routes source-code work to the matching `mix-dev-*` leaf (C#/.NET,
+  Blazor, modules, EF migrations, tests) and composes companion plugins where useful.
+- **`docs-sync`** — keeps `skills/*` and the platform repo's `wwwroot/system-prompts/`
+  mirrored.
+
+## Requirements
+
+- **A Mixcore MCP server** for the content (`mixcore` / `mix-mcp-*`) skills — see
+  [`skills/mixcore/mcp-prefix.md`](skills/mixcore/mcp-prefix.md).
+- **Optional companion plugins** used by some `mixdev` workflows: `superpowers:*`
+  (plan implementation / code review) and the `dotnet-*` skill plugins (test, build,
+  diagnostics). Install them separately; if absent, those steps are simply skipped.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the skill-authoring checklist, naming
+convention, and the `scripts/validate.sh` invariants (run in CI on every PR).
