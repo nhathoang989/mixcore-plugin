@@ -50,6 +50,34 @@ All paths are relative to: `C:\Tinku\Git\mixcore\sources\mixcore-cloud`.
 
 ---
 
+## CQRS command handlers — pipeline behaviors only fire for `ICommand<T>`
+
+`AddMixCqrs(assembly)` (mix.heart) wires MediatR plus three pipeline behaviors — `ValidationBehavior` → `CacheInvalidationBehavior` → `UnitOfWorkBehavior`. **All three early-return unless the request implements `ICommand<TResponse>`**, and `UnitOfWorkBehavior` / `ValidationBehavior` additionally require a `Uow` / `Data` property (resolved by reflection).
+
+🚨 **CRITICAL RULE:** If your command is a plain `IRequest<T>` (like `RegisterTenantCommand` and the tenant-invitation commands), it gets **none** of those behaviors. You must:
+
+- **Persist manually** — call `Context.SaveChangesAsync(ct)` yourself; there is no ambient UnitOfWork commit. Use the existing context (e.g. `TenantUserManager.Context.SaveChangesAsync(...)`, as in `TenantIdentityServices.cs` / `AccountUserService`).
+- **Validate manually** — `ValidationBehavior` only runs DataAnnotations on a `Data` property, never FluentValidation, and validators are **not** DI-registered (no `AddValidatorsFromAssembly` anywhere). Instantiate the validator in the handler:
+
+```csharp
+var validation = await new XCommandValidator().ValidateAsync(request, ct);
+if (!validation.IsValid)
+    throw new MixException(MixErrorStatus.Badrequest,
+        validation.Errors.Select(e => e.ErrorMessage).ToArray());
+```
+
+`MixException.Status` enum values equal HTTP codes (400/401/403/404/500) — map them in controllers with `StatusCode((int)ex.Status, new { error = ex.Message })`.
+
+---
+
+## Outbound email (EDM) is a no-op stub
+
+🚨 **CRITICAL RULE:** Do not assume `IMixEdmService.SendMailWithEdmTemplate(...)` actually delivers mail — it does not in the current build. The real `mix.notification/Services/MixEdmService.cs` is **excluded from compilation** (`<Compile Remove>` in `mix.notification.csproj`) and unregistered. Two `IMixEdmService` interfaces exist (`mix.notification.Interfaces` and `Mix.Account.Interfaces`); the only registration is `mix.account/Startup.cs` → `AddScoped<IMixEdmService, DefaultEdmService>()`, a no-op that logs and returns. EDM templates load by name via `GetEdmTemplate(filename)`; none ship in the repo. The Cloud.Mail `IEmailService` SMTP/Resend providers are likewise stubs.
+
+When a feature "sends email" (register, confirm-email, password-reset, tenant-invite): store/queue the artifact and surface the limitation — never report delivery. Wiring a real provider is separate work.
+
+---
+
 ## Data and JSON conventions
 
 - Keep EF Core mappings and entities compatible with existing snake_case DB naming conventions.
