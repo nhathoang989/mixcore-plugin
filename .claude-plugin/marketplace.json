@@ -9,7 +9,10 @@
   "plugins": [
     {
       "name": "mixcore",
-      "source": "./"
+      "source": {
+        "source": "url",
+        "url": "https://github.com/nhathoang989/mixcore-plugin.git"
+      }
     }
   ]
 }
