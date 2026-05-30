@@ -1,7 +1,9 @@
 # mixcore plugin
 
 The Mixcore CMS skill suite for Claude Code, bundled as one installable plugin. All skills are namespaced under
-`mixcore:` — the plugin name carries identity, so the skills drop the old `mix-`/`mixcore-` prefixes.
+`mixcore:` (the plugin name), and each skill's own name announces its router family: content/MCP leaves are
+prefixed **`mix-mcp-*`**, code leaves **`mix-dev-*`**, and the routers are **`mixcore`** (content) and
+**`mixdev`** (code), alongside **`docs-sync`**.
 
 ## Install
 
