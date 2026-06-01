@@ -321,8 +321,14 @@ platform/common/mix.ui.shared/
 └── Components/
     ├── AI/
     │   └── LlmCredentialsEditor.razor     # existing
+    ├── Shared/                            # JS-interop field editors (one .razor + colocated .razor.js)
+    │   ├── CodeEditorField.razor          # Monaco code editor
+    │   ├── HtmlWysiwygField.razor         # Quill WYSIWYG (Html columns)
+    │   └── MarkdownEditorField.razor      # Toast-UI markdown (TuiEditor columns)
+    ├── Services/
+    │   └── MediaUploadClient.cs           # IMediaUploadClient → POST /api/v1/vault/objects/upload
     └── MixDb/
-        ├── DynamicColumnEditor.razor      # generic field editor
+        ├── DynamicColumnEditor.razor      # per-MixDataType field renderer (rich editors + file upload)
         └── ColumnEditorRow.razor          # column schema row
 ```
 
@@ -330,4 +336,45 @@ Add the reference to any consuming module's `.csproj`:
 ```xml
 <ProjectReference Include="..\..\..\platform\common\mix.ui.shared\mix.ui.shared.csproj" />
 ```
+
+### JS-interop editors — load order, globals, disposal
+
+The editor fields wrap third-party JS via a colocated ES-module `.razor.js`, imported as
+`./_content/mix.ui.shared/Components/Shared/<Name>.razor.js` with `init`/`setValue`/`dispose`
+and an `[JSInvokable] OnValueChanged` callback (mirror `CodeEditorField`). Each implements
+`IAsyncDisposable` and calls the JS `dispose`.
+
+🚨 **CRITICAL — UMD editor bundles must load BEFORE Monaco's AMD loader.** Quill and Toast-UI
+are UMD bundles; Monaco's `loader.min.js` installs an AMD `define.amd`. If a UMD bundle loads
+*after* the Monaco loader it registers as an anonymous AMD module, Monaco rejects it
+(`Can only have one anonymous define call per script file`), and `window.Quill` / `window.toastui`
+never bind → the component's `init()` throws → **the Blazor circuit terminates**. In
+`_BlazorAdminLayout.cshtml` put the Quill/Toast-UI `<script>` tags *above* the Monaco loader.
+
+- **Both host layouts.** Shared MixDb editors render in `mix.admin.ui` (`/a`, `_BlazorAdminLayout.cshtml`)
+  AND `mix.cloud.ui` (`/p`, `_CloudLayout.cshtml`) — add the editor `<link>`/`<script>` to **both**, or the
+  feature silently breaks on one host. `_CloudLayout` has no Monaco loader, so order is moot there.
+- **Guard the global.** Start `init()` with `if (typeof Quill === 'undefined') { /* textarea fallback */ return; }`
+  so a blocked/air-gapped CDN degrades instead of crashing the circuit.
+- **Verify in a browser** — a clean `dotnet build` never catches an AMD/UMD load-order break.
+
+### File upload from a shared component (Vault)
+
+`mix.ui.shared` (platform/common) must **not** reference a cloud pillar, so it cannot DI `VaultService`.
+Upload over HTTP instead:
+
+- `MixSectionContext(int TenantId, string? AccessToken = null)` is cascaded `IsFixed` by both dashboards
+  (token read from the `mixcore_access_token` cookie via the host `.cshtml` → dashboard `AccessToken` param).
+- `MediaUploadClient` (the `FlowsApiClient` idiom: `IHttpClientFactory.CreateClient("LocalApi")` +
+  `NavigationManager.BaseUri`) sets the **`Bearer` header explicitly** — a server→server loopback POST does
+  **not** carry the auth cookie, so a null token → 401.
+- Parse the response with `JObject` (tolerate `url`/`Url`); never reference the Vault `FileUploadResultDto`.
+- `IBrowserFile.OpenReadStream` is forward-only — buffer to a `MemoryStream` so `HttpClient` can set `Content-Length`.
+
+### Edit↔view toggle for stateful JS editors
+
+A Toast-UI editor and its viewer are **distinct instances** that cannot swap mode in place; `ReadOnly`
+is only read in `init()`. When a field is rendered in a single branch with `ReadOnly="@IsReadOnly"`,
+`@key` it on the mode (e.g. `@key="@($"md-{IsReadOnly}")"`) so flipping edit↔view recreates the instance.
+(Quill columns instead use separate `@if (IsReadOnly)` branches, so they recreate naturally.)
 
