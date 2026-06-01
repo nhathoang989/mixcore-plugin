@@ -252,12 +252,14 @@ function handleConnectError(e) {
         || m.indexOf('not valid JSON') !== -1  // parse error
         || m.indexOf('Unexpected token') !== -1;
     if (isAuthFail) {
-        showLoginForm();
+        showGate();   // reveal the full-cover sign-in overlay (see chat-widget.md)
     } else {
         showError('Could not connect to AI.');
     }
 }
 ```
+
+**Present sign-in as a full-cover gate, not an inline bubble.** When auth fails, reveal a `position:absolute; inset:0` overlay inside the drawer (its own bar + close, centered login form) that covers the messages list AND the input row — so a logged-out visitor can't type into a dead chat. Hide it on a successful `hub.start()` and after login. Markup, CSS, and the `showGate`/`hideGate`/`wireGate` wiring are in [references/chat-widget.md](references/chat-widget.md) § Auth failure → full-cover sign-in gate.
 
 ---
 
@@ -411,6 +413,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] `hub.invoke('AskAI', message, sessionId, null, null)` — provider and model default to null
 - [ ] `marked.js` CDN added for markdown rendering — `rawText` accumulator used (not `bubble.textContent`)
 - [ ] Auth failure detection checks for HTML/parse errors, not just HTTP 401
+- [ ] Sign-in renders as a full-cover gate overlaying the whole drawer (covers messages + input), hidden on successful connect/login — not an inline bubble
 - [ ] Suggestion button click handlers call `setSend()` explicitly after setting `input.value`
 - [ ] `window.beforeunload` → `hub.stop()` to clean up the connection
 - [ ] `onComplete` checks `vm.success !== false` before rendering — errors shown as text, not HTML
@@ -429,6 +432,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - Never use `bubble.textContent` to recover streamed text — use a separate `rawText` accumulator
 - Never check only for `statusCode === 401` on hub connect failure — ASP.NET redirect returns HTML causing a JSON parse error
 - Never look for `res.data.accessToken` in the login response — the field is `res.result.AccessToken`
+- Never render the sign-in form as an inline chat bubble in the message list — use a full-cover gate (`position:absolute; inset:0`) that overlays the whole drawer, so the input row is blocked while logged out
 - Never set `input.value` programmatically without calling `setSend()` — the `input` event does not fire
 - Never hardcode `provider` or `model` unless the user requests a specific provider — pass `null`
 - Never read the token from a cookie — always from `localStorage['mix_access_token']`

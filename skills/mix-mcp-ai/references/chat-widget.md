@@ -550,9 +550,11 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
 ---
 
-## Auth failure → inline login form
+## Auth failure → full-cover sign-in gate
 
 When the hub endpoint is `[Authorize]` and the user has no token, ASP.NET Core redirects `/hubs/site-knowledge/negotiate` to the HTML login page. SignalR gets `<!DOCTYPE html>` where it expects JSON negotiation — this surfaces as a `SyntaxError`, not an HTTP 401.
+
+**Present the login as a full-cover gate that overlays the entire widget**, not as a message appended into the chat list. The gate is an `position:absolute; inset:0` panel inside the drawer with its own title bar + close button and a centered login form, shown when the hub fails auth and hidden on a successful sign-in. This blocks the messages list AND the input row so an unauthenticated user can't type into a dead chat, and it reads as a deliberate "sign in to continue" screen rather than a stray bubble. (The drawer is `position:fixed`, so it is the containing block for the `inset:0` gate.)
 
 ### Detection
 
@@ -565,70 +567,86 @@ hub.start().catch(function(e) {
         || m.indexOf('not valid JSON') !== -1
         || m.indexOf('Unexpected token') !== -1;
     if (isAuthFail) {
-        showLoginForm();
+        showGate();          // reveal the full-cover sign-in overlay
     } else {
         showError('Could not connect to AI.');
     }
-    input.disabled = true; sendBtn.disabled = true;
 });
 ```
 
-### Login form + reconnect
+Also call `showGate()` from `sendMessage()` when the hub is not connected, so a click "send" on a logged-out widget surfaces the gate instead of a silent failure.
+
+### Gate markup (inside the drawer, after the input row)
+
+```html
+<div id="mix-chat-gate" aria-hidden="true">
+  <div class="mix-gate-bar">
+    <span class="t"><b>&gt;_</b> sign in</span>
+    <button id="mix-gate-close" class="mix-hbtn" aria-label="Close">esc &times;</button>
+  </div>
+  <div class="mix-gate-body">
+    <div class="who">// sign in required</div>
+    <h4>Chat with the assistant</h4>
+    <p>Sign in with your account to use the assistant.</p>
+    <form id="mix-lf" class="mix-login-form">
+      <input id="mix-lu" class="mix-login-input" type="text" placeholder="username or email" autocomplete="username"/>
+      <input id="mix-lp" class="mix-login-input" type="password" placeholder="password" autocomplete="current-password"/>
+      <div id="mix-le" class="mix-login-err"></div>
+      <button class="mix-login-btn" type="submit">sign in</button>
+    </form>
+  </div>
+</div>
+```
+
+### Gate CSS (covers the whole drawer)
+
+```css
+#mix-chat-gate { position: absolute; inset: 0; z-index: 6; background: var(--ink,#0a0d0e); display: none; flex-direction: column; }
+#mix-chat-gate.show { display: flex; }
+.mix-gate-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line,#202c31); flex-shrink: 0; }
+.mix-gate-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 1.8rem; }
+```
+
+### Show/hide + login (reconnect)
+
+The login form is **static markup wired once** (not rebuilt each time). Toggle the gate with a `.show` class; on success store the token, hide the gate, and reconnect the hub.
 
 ```js
-function showLoginForm() {
-    msgs.innerHTML = '';
-    var d = document.createElement('div');
-    d.className = 'mix-empty';
-    d.innerHTML = '<p>Sign in to chat with the AI assistant</p>'
-        + '<form id="mix-lf" class="mix-login-form">'
-        + '<input id="mix-lu" class="mix-login-input" type="text" placeholder="Username or email" autocomplete="username"/>'
-        + '<input id="mix-lp" class="mix-login-input" type="password" placeholder="Password" autocomplete="current-password"/>'
-        + '<div id="mix-le" class="mix-login-err"></div>'
-        + '<button class="mix-login-btn" type="submit">Sign In</button>'
-        + '</form>';
+function showGate() { var g = document.getElementById('mix-chat-gate'); if (g) { g.classList.add('show'); g.setAttribute('aria-hidden','false'); var u = document.getElementById('mix-lu'); if (u) u.focus(); } }
+function hideGate() { var g = document.getElementById('mix-chat-gate'); if (g) { g.classList.remove('show'); g.setAttribute('aria-hidden','true'); } }
 
-    d.querySelector('#mix-lf').addEventListener('submit', function(e) {
+function wireGate() {
+    var f = document.getElementById('mix-lf'); if (!f) return;
+    var gc = document.getElementById('mix-gate-close');
+    if (gc) gc.addEventListener('click', function () { if (window.mixChatClose) window.mixChatClose(); });
+    f.addEventListener('submit', function (e) {
         e.preventDefault();
-        var u = d.querySelector('#mix-lu').value.trim();
-        var p = d.querySelector('#mix-lp').value;
-        var le = d.querySelector('#mix-le');
-        var btn = d.querySelector('.mix-login-btn');
-        if (!u || !p) { le.textContent = 'Please enter username and password.'; le.style.display = 'block'; return; }
-        btn.disabled = true; btn.textContent = 'Signing in…'; le.style.display = 'none';
-
+        var u = document.getElementById('mix-lu').value.trim(), p = document.getElementById('mix-lp').value;
+        var le = document.getElementById('mix-le'), btn = f.querySelector('.mix-login-btn');
+        if (!u || !p) { le.textContent = 'Enter username and password.'; le.style.display = 'block'; return; }
+        btn.disabled = true; btn.textContent = 'signing in…'; le.style.display = 'none';
         fetch('/api/v1/rest/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userName: u, password: p, rememberMe: true })
         })
-        .then(function(r) {
-            return r.ok ? r.json() : r.json().then(function(j) {
-                throw new Error((j && j.errors && j.errors[0]) || 'Login failed');
-            });
-        })
-        .then(function(res) {
+        .then(function (r) { return r.ok ? r.json() : r.json().then(function (j) { throw new Error((j && j.errors && j.errors[0]) || 'Login failed'); }); })
+        .then(function (res) {
             // ApiResponseModel<TokenResponseModel> — field is Result, not data
-            var r = res && (res.result || res.Result || res.data || res.Data);
-            var tok = r && (r.accessToken || r.AccessToken);
+            var rr = res && (res.result || res.Result || res.data || res.Data);
+            var tok = rr && (rr.accessToken || rr.AccessToken);
             if (!tok) throw new Error('Invalid response from server');
             localStorage.setItem(TOKEN_KEY, tok);
-            token = tok;  // update the accessTokenFactory closure variable
-            msgs.innerHTML = '';
-            hub.start()
-                .then(function() { /* show normal chat state */ })
-                .catch(function() { showError('Could not connect to AI.'); });
+            btn.disabled = false; btn.textContent = 'sign in'; f.reset();
+            hideGate();
+            // accessTokenFactory reads localStorage on each (re)connect, so no closure var to update
+            hub.start().then(function () { hideGate(); /* show welcome */ }).catch(function () { showError('Could not connect to AI.'); });
         })
-        .catch(function(err) {
-            le.textContent = (err && err.message) || 'Login failed. Please try again.';
-            le.style.display = 'block';
-            btn.disabled = false; btn.textContent = 'Sign In';
-        });
+        .catch(function (err) { le.textContent = (err && err.message) || 'Login failed.'; le.style.display = 'block'; btn.disabled = false; btn.textContent = 'sign in'; });
     });
-
-    msgs.appendChild(d);
 }
 ```
+
+Call `hideGate()` from the hub's successful `.start()` too, so a valid token never leaves the gate showing. Wire the gate **once** on `DOMContentLoaded` (alongside `wireUI()`), before/after `initHub()`.
 
 ### API contract
 
