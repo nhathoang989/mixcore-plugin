@@ -35,6 +35,22 @@ For AI chat widget tasks (floating chat, SiteKnowledgeHub, SignalR-connected wid
 
 ---
 
+## 🎨 Design Quality: Use a Frontend/UI Skill Before Generating or Updating a Template
+
+**Before you generate or update ANY template** (master layout, page, module, post, widget, form, or MixDB detail template), check whether a frontend-design or UI design skill is available in this session and invoke it first to inform the markup and styling.
+
+1. **Check availability** — look in the available-skills list for a design/UI skill. Common ones, in order of preference:
+   - `frontend-design` — distinctive, production-grade UI; avoids generic AI aesthetics
+   - `ui-ux-pro-max` — styles, color palettes, font pairings, layout/UX guidance
+   - `ui-styling` — Tailwind / shadcn-style components, themes, accessibility
+   - any other skill whose description mentions UI, UX, frontend, design system, or styling
+2. **If one is available → invoke it first** via the `Skill` tool, then apply its guidance (layout, color, typography, spacing, interaction states, accessibility) to the Razor markup you pass to `CreateTemplate` / `UpdateTemplate`.
+3. **If none is available → proceed** with the design conventions already in this skill and the reference files. Do not block the task.
+
+> This raises visual quality and consistency. The frontend/UI skill informs **how the HTML/CSS looks**; this skill still governs **how it is created** — all output goes through MCP `CreateTemplate` / `UpdateTemplate`, never direct file edits.
+
+---
+
 ## 🚨 CRITICAL RULE: NEVER Update Files Directly
 
 **❌ DO NOT** directly edit/write template or content files using `Write`/`Edit` tools.

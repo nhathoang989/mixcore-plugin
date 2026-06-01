@@ -32,7 +32,10 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 | Forms | "Which forms are needed — contact, newsletter, registration, or none?" |
 | Pages | "What are the main pages besides Home? (e.g. About, Services, Pricing, Blog, Portfolio)" |
 | Features | "Any special requirements — multi-language, member portal, e-commerce, or none?" |
+| Management portal | "Do you want an in-site portal page to manage the site's content (e.g. view/add/edit listings, review form submissions, manage MixDB rows), or will you manage everything through the CMS admin panel?" |
 | Design style | "Any brand colours, fonts, or design references to follow?" |
+
+> **Always ask the management-portal question** when the site has dynamic content (products, posts, submissions, listings, etc.). Many users want a lightweight front-end portal to manage their own data without the full CMS admin panel. If the user wants one, plan it as extra page(s) + module(s) (list/create/edit views over the relevant MixDB tables, gated behind login) and add it to the outline below.
 
 **3. Propose a site plan outline** before waiting for answers — show the user what you _plan_ to build based on what you know, so they can correct or confirm:
 
@@ -42,6 +45,7 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 - Content types: [inferred MixDB tables]
 - Modules: [Hero, Services grid, Testimonials …]
 - Forms: [Contact form, Newsletter …]
+- Management portal: [Yes — portal pages to manage <tables> / No — use CMS admin panel]
 - Features: [anything special detected]
 
 If this looks right, reply "go ahead" and I'll start planning.
@@ -82,6 +86,8 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 - **C# variable declarations inside `@{ }` blocks must NOT wrap the value in `@(...)`**. The `@(...)` syntax is for inline output in HTML; inside a code block it is a syntax error.
   - WRONG: `var iId = @(item.Get<int>("id", 0));`
   - RIGHT:  `var iId = item.Get<int>("id", 0);`
+
+**Design quality rule (all template phases — 2, 3, 4, 5, 6):** Before generating or updating a template, check whether a frontend-design or UI design skill is available in this session (`frontend-design`, `ui-ux-pro-max`, `ui-styling`, or any skill whose description mentions UI / UX / frontend / design / styling). If one is available, invoke it first via the `Skill` tool and apply its layout, color, typography, and accessibility guidance to the markup. If none is available, proceed with this skill's conventions. See `mixcore:mix-mcp-cms` → "🎨 Design Quality" for the full rule. Output still goes only through MCP `CreateTemplate` / `UpdateTemplate`.
 
 ---
 
