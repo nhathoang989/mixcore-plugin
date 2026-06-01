@@ -19,7 +19,10 @@ You are building **shadcn-style UI** for **mixcore-cloud** using **BlazorBluepri
 **Read `references/verified-component-apis.md` first.** It documents the exact component usages
 confirmed by grepping this repo — including repo conventions that differ from a naive reading of the
 library docs (e.g. modals use `BbSheet`, **not** `BbDialog`; `BbSelect` is compositional; `BbSwitch`
-uses `Checked`/`CheckedChanged`; inline `@code` blocks must add `@using Newtonsoft.*`).
+uses `Checked`/`CheckedChanged`; inline `@code` blocks must add `@using Newtonsoft.*`) **and three
+portal-wide traps: Lucide names must be v2 canonical (aliases render ⚠️), Tailwind utilities are
+limited to the precompiled `blazorblueprint.css` (add missing ones to `cloud.css`), and component
+parameter names are checked at render not build (a bad param compiles but kills the circuit).**
 
 Then fetch the live component index for anything not covered there:
 
