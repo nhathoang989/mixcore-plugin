@@ -136,17 +136,32 @@ dotnet run --project src/mixcore.host
 
 ## UI Design Rule
 
-**Whenever creating or significantly modifying Blazor UI**, invoke the `frontend-design` skill **before writing any markup or CSS**. The skill determines the aesthetic direction, component structure, and CSS approach. Do not default to generic BlazorBlueprint defaults — every user-facing UI should have a deliberate visual identity.
-
-Trigger on: "create a component", "add a page", "redesign", "clean up UI", "improve the look", "review the UI", any task that results in new or changed `.razor` markup or `.css` rules.
+**Whenever you generate OR update any Blazor UI, you MUST invoke the `frontend-design` skill _before_ writing or changing markup/CSS.** This is non-negotiable and applies equally to brand-new components and to edits/redesigns/cleanups of existing ones.
 
 ```
-Skill("frontend-design:frontend-design")  ← always before writing UI code
+Skill("frontend-design:frontend-design")  ← always before writing OR editing UI code
 ```
+
+Trigger on: "create a component", "add a page", "redesign", "clean up UI", "improve the look", "review the UI", "polish", any task that results in new or changed `.razor` markup or `.css` rules.
+
+### Pick the surface first — it decides how `frontend-design` applies
+
+`frontend-design` optimizes for distinctive, memorable aesthetics. That is right for **public surfaces** and wrong for **admin surfaces**, where consistency is the quality bar. Decide which you're touching:
+
+| Surface | Where | How to apply `frontend-design` |
+|---|---|---|
+| **Admin / portal / dashboard** | `mix.cloud.ui`, `mix.admin.ui`, embedded dashboards, settings/section components | Apply its quality lens **through the existing BlazorBlueprint / shadcn design system.** Consistency with sibling sections IS the design — reuse the native components and tokens, do not hand-roll. |
+| **Public / marketing / auth landing** | landing page, signup/login layouts, standalone marketing pages | Full creative latitude — commit to a distinctive identity (fonts, accent, motion). |
+
+> ⚠️ Do **not** hand-roll UI that the component library already provides. In admin/portal work, "deliberate design" means choosing the right **BlazorBlueprint** primitive and matching the surrounding sections — not inventing custom chrome. Custom `fixed inset-0` modals, raw `<input>/<select>/<table>`, and "Yes/No" text instead of badges read as off-house-style and get rejected in review. Before building, grep a sibling section for the idiom and reuse it:
+> - Modal/editor → `BbDialog` (`BbDialogContent/Header/Title/Footer/Close`); destructive confirm → `BbAlertDialog`
+> - Form controls → `BbInput` / `BbSelect` / `BbSwitch` / `BbCheckbox` / `BbLabel` (not raw HTML inputs)
+> - Status & tags → `BbBadge` (`BadgeVariant.*`); framing → `BbCard`; tables → existing table idiom
+> - Only the **prebuilt** Tailwind utilities exist (no JIT build): `grid-cols-1/2`, `sm:grid-cols-2`, plus `grid-cols-3/4` patched in `cloud.css`. **Arbitrary values like `sm:grid-cols-[120px_1fr_1fr]` silently never apply** — use a shipped utility or add the rule to `cloud.css`.
 
 After the skill loads:
-1. Commit to a clear aesthetic direction (dark/light, accent color, font pairing).
-2. Write the CSS classes needed **before** the Razor markup that uses them.
-3. Scope styles to the component — use a wrapper class (e.g. `.su-card`, `.signup-page`) to avoid leaking into the rest of the app.
+1. Confirm the surface (table above). For admin/portal: survey 1–2 sibling sections and reuse their BlazorBlueprint components and layout. For public: commit to a clear aesthetic direction (dark/light, accent color, font pairing).
+2. Write any CSS classes needed **before** the Razor markup that uses them; verify each utility class actually exists in the shipped CSS.
+3. Scope custom styles to the component — use a wrapper class (e.g. `.su-card`, `.signup-page`) to avoid leaking into the rest of the app.
 4. For login/signup layouts: styles go in `wwwroot/css/cloud.css` (append a named section); layout-level changes (fonts, body background) go in the relevant `_Layout.cshtml` inline `<style>` block.
 5. Build and verify before committing.
