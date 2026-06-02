@@ -1,12 +1,21 @@
 ---
 name: mixcore
-description: Entry point for CONTENT tasks in Mixcore CMS — routes to the mixcore:* skill that uses MCP tools to CRUD content (templates, pages, modules, posts, MixDB tables/rows, site wiki, AI chat widget). Content only — never edits repo source code. Trigger on "mixcore", "mixcore:*", or any templates / MixDB / pages / modules / posts / wiki / website-content task. For source-code feature work use mixcore:mixdev; to keep skill↔system-prompt docs in sync use mixcore:docs-sync.
+description: Entry point for CONTENT tasks in Mixcore CMS — routes to the mixcore:* skill that uses MCP tools to CRUD content (templates, pages, modules, posts, MixDB tables/rows, site wiki, AI chat widget). Content only — MCP tools ONLY; never edits repo source code and never switches to mixcore:mixdev from here. Server-side bugs or code-requiring needs are escalated as GitHub issues and handed back to the user. Trigger on "mixcore", "mixcore:*", or any templates / MixDB / pages / modules / posts / wiki / website-content task. To keep skill↔system-prompt docs in sync use mixcore:docs-sync.
 argument-hint: "<describe your task — auto-routes to the right mixcore:* skill>"
 ---
 
 # Mixcore Skill Router
 
 > **Scope:** this router covers **content CRUD via MCP tools only** — templates, pages, modules, posts, MixDB schema/rows, the site wiki, and the AI chat widget. It never edits repo source code. Sibling routers: **`mixcore:mixdev`** (AI edits C#/Blazor source to implement features) · **`mixcore:docs-sync`** (CRUD developer docs, keep skills ↔ system-prompts consistent).
+
+> ## 🚨 HARD RULE — `/mixcore:mixcore` is MCP-only; never touch source code
+>
+> In a `/mixcore:mixcore` session you interact with the running server **exclusively through MCP tools**. You must **NEVER**, from here:
+> - invoke `mixcore:mixdev` (or any `mix-dev-*` skill),
+> - edit, create, or delete repo source code (`.cs`, `.razor`, `.csproj`, config),
+> - run `dotnet build` / `dotnet run` / `dotnet test`, restart the app, or open a git worktree/branch to change code.
+>
+> If a task turns out to need a source-code change — or you hit a **server-side bug, a missing/broken endpoint, or any capability only a code change can provide** — do **not** switch skills and do **not** fix it yourself. Instead: **STOP → create a GitHub issue → tell the user the issue number + link → wait for the user to decide what happens next.** See [GitHub Issue Escalation](#github-issue-escalation). The user owns all decisions about code/server work; your job here is MCP content work plus surfacing blockers as issues.
 
 When invoked with a task (e.g. `/mixcore:mixcore create a contact form` or `/mixcore:mixcore add a price column to products`), you **must**:
 
@@ -134,7 +143,7 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 | Complete website from a brief — phased plan, schema + templates + pages; **also the default for any React/Vue/Svelte/frontend page/landing page request unless `mixcore:mix-mcp-spa` is explicitly requested** | `mixcore:mix-mcp-build-site` |
 | **AI chat widget** on a CMS page — floating/drawer chat, SiteKnowledgeHub SignalR wiring, streaming, login/token, auth-failure handling | `mixcore:mix-mcp-ai` |
 | **Wiki / knowledge base / RAG** — search the site wiki, create/read/list/delete wiki docs, manage the RAG index | `mixcore:mix-mcp-rag` |
-| Coding / backend / Blazor / .NET module work | → route to `mixcore:mixdev` skill instead |
+| Coding / backend / Blazor / .NET source change, **or** a server-side bug / missing capability that blocks an MCP task | 🚨 **STOP — do not switch to `mixcore:mixdev` and do not edit source.** File a GitHub issue, report it to the user, and await their decision. See [GitHub Issue Escalation](#github-issue-escalation). |
 
 ---
 
@@ -144,7 +153,7 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 - **Build a landing page, marketing site, or any frontend page** → `mixcore:mix-mcp-build-site` (Razor/CMS templates, all phases)
 - **Only when user explicitly says "use mixcore:mix-mcp-spa" or "I have a built dist folder"** → `frontend-design` (build the SPA) → `mixcore:mix-mcp-spa` (install into Mixcore)
 - **AI chat widget on a page** → `mixcore:mix-mcp-ai` (hub/streaming/auth wiring) + `mixcore:mix-mcp-cms` (widget HTML/CSS in the template content field)
-- **Any coding task alongside CMS content** → `mixcore:mixdev` (for code) + `mixcore:mix-mcp-cms` or `mixcore:mix-mcp-db` (for content)
+- **A task that mixes CMS content with a code/server need** → do the content part here via MCP (`mixcore:mix-mcp-cms` / `mixcore:mix-mcp-db`); for the code/server part, **file a GitHub issue and report to the user — never switch to `mixcore:mixdev` from a `/mixcore:mixcore` session.**
 
 ---
 
@@ -153,8 +162,30 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 - **`mixcore:mix-mcp-cms` vs `mixcore:mix-mcp-db`**: `mixcore:mix-mcp-db` is schema-only. The moment a `.cshtml` template, page, or `Model.GetModule(...)` is involved, switch to `mixcore:mix-mcp-cms`.
 - **`mixcore:mix-mcp-build-site` is the default for all website/landing page requests** — including React, Svelte, Vue, or "build a page" requests. It uses Razor/CMS templates and covers all phases automatically.
 - **`mixcore:mix-mcp-spa` is opt-in only**: use it exclusively when the user explicitly says "use mixcore:mix-mcp-spa", "I have a dist folder", "embed a built SPA", or names `mixcore:mix-mcp-spa` directly. Never infer it from the tech stack alone.
-- **CMS vs coding**: If the task is about `.razor` components, C# services, `dotnet build`, or scaffolding a module — route to `mixcore:mixdev`, not here.
+- **CMS vs coding**: If the task needs `.razor` components, C# services, `dotnet build`, EF migrations, or module scaffolding — **do not route to `mixcore:mixdev` and do not edit source from here.** STOP, file a GitHub issue, report it, and await the user's decision (see [GitHub Issue Escalation](#github-issue-escalation)). The user drives whether and when code work happens.
 - **`mixcore:mix-mcp-ai` vs `mixcore:mix-mcp-cms`**: `mixcore:mix-mcp-ai` owns the chat *behavior* (SignalR hub, `AskAI`, streaming handlers, auth/token). The widget's *HTML/CSS* (drawer, overlay, login form, bubbles) lives in the template content field and is `mixcore:mix-mcp-cms`'s job. A typical widget task uses both.
+
+---
+
+## GitHub Issue Escalation
+
+A `/mixcore:mixcore` session **never edits source and never hands off to `mixcore:mixdev`**. When you hit something MCP tools cannot do — a server-side bug, a missing or broken endpoint, or a needed schema/feature that only a code change provides — **escalate, don't fix**:
+
+1. **Confirm it's real** — reproduce it through MCP/HTTP 2–3 times and rule out a bad parameter or stale cache. Do not retry the same failing call more than 2–3 times.
+2. **File a GitHub issue** (the only write to the codebase you may make from here):
+   ```bash
+   gh issue create --repo mixcore-cloud/platform \
+     --title "bug: <short description>" \
+     --body "**Context:** hit during a /mixcore:mixcore (MCP-only) session.
+   **Steps to reproduce:** ...
+   **Expected:** ...
+   **Actual:** ...
+   **File (if known):** path/to/file.cs:line"
+   ```
+3. **Report to the user** — give the issue number + URL, a one-line summary, and exactly what it blocks.
+4. **Stop and wait.** Do **not** open a worktree, edit code, run `dotnet`, restart the server, or invoke `mixcore:mixdev`. The user decides the next step and will tell you what to do.
+
+Everything else continues through MCP tools as normal — only the blocked, code-requiring part becomes an issue.
 
 ---
 
