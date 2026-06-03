@@ -31,8 +31,9 @@ You are helping build **Blazor Web Apps** in the **mixcore-cloud** solution. All
 | [references/standalone-app.md](references/standalone-app.md) | a standalone Blazor app in `src/apps/` — solution layout, render modes, boilerplate, typed HttpClient, wizard steps |
 | [references/embedded-dashboard.md](references/embedded-dashboard.md) | an MVC-embedded dashboard module — catch-all route, `history.pushState`, shell/section structure, cascading nav, code-behind partials |
 | [references/tenant-isolation.md](references/tenant-isolation.md) | loading tenant-scoped data in a Blazor **Server** section (`BlazorTenantContext` / `MixSectionContext`) |
+| [references/headless-data-loading.md](references/headless-data-loading.md) | loading a section's data through the REST contract (headless), the co-hosted loopback-deadlock caveat + transport abstraction, and 401 refresh-token retry |
 
-The sections below (gotchas, Aspire, CLI, task patterns, UI rule) apply to **both** patterns — keep them in mind regardless of which reference you load.
+The sections below (gotchas, Aspire, CLI, task patterns, data-loading rule, UI rule) apply to **both** patterns — keep them in mind regardless of which reference you load.
 
 ---
 
@@ -127,10 +128,36 @@ dotnet run --project src/mixcore.host
 | "create a Blazor app" | Scaffold with `dotnet new blazor`, add to sln, wire Program.cs with Aspire defaults + typed HttpClient (references/standalone-app.md) |
 | "add a Blazor component" | Create `.razor` in `Components/` with `[Parameter]` contract, `type="button"` buttons |
 | "add a wizard step" | Follow the 7-step checklist in references/standalone-app.md (Pattern A) |
-| "add a service / API client" | Typed `HttpClient` class in `Services/` using `ApiResult` pattern (references/standalone-app.md) |
+| "add a service / API client" | Typed `HttpClient` class in `Services/` using `ApiResult` pattern (references/standalone-app.md); for a portal/admin **section's data**, follow the headless data-loading rule below (references/headless-data-loading.md) |
+| "load data in a portal/admin section" | REST controller (create if missing) + `IXxxApiClient` with in-process & HTTP impls; **never** inject `IMediator`/service/`DbContext` straight into the section (references/headless-data-loading.md) |
 | "add a section to the dashboard" | Create `.razor` + `.razor.cs` partial pair in `Sections/{Group}/`, add `CloudNavContext? NavContext` cascading param, add route to `_validRoutes`, add `else if` case in shell, add sidebar item (references/embedded-dashboard.md) |
 | "wire URL routing to dashboard" | `history.pushState` in Navigate/NavigateToDetail, `[JSInvokable] HandlePopState`, global functions in `site.js`, `{**id}` catch-all route in MVC controller (references/embedded-dashboard.md) |
 | "embed Blazor inside MVC" | Register `AddRazorComponents().AddInteractiveServerComponents()` in `Program.cs`, `app.MapRazorComponents<App>()`, render with `<component type="..." render-mode="Server" />` in `.cshtml` (references/embedded-dashboard.md) |
+
+---
+
+## Headless Data-Loading Rule
+
+**Mixcore is a headless CMS: every portal/admin section's data MUST be reachable through the REST
+API contract — not loaded only by injecting `IMediator` / a service / `DbContext` straight into the
+section.** If a section has no backing endpoint, **create the controller** (`[ApiController]
+[Authorize]`, `mix.lib` base controller, **camelCase** anonymous DTOs — raw ViewModels serialize
+PascalCase and render blank).
+
+But **never let a co-hosted Blazor Server circuit call its own Kestrel over loopback HTTP — it
+deadlocks the circuit** (→ SignalR "Server timeout"). Reconcile both with the **transport
+abstraction**: the UI depends on an `IXxxApiClient` interface with **two** impls — `InProcessXxx`
+(MediatR/service, co-hosted **default**) and `HttpXxx` (`"LocalApi"`, separate-process). This
+mirrors the shipped `IMixLogTransport` → `InProcessMixLogTransport` / `HttpMixLogTransport`.
+
+**Every HTTP data call retries once on `401` by refreshing the access token** — the
+`HttpClient`/XHR analogue of `AdminTokenHelper` (which only covers browser-navigation 401s).
+Register the (currently unregistered) `"LocalApi"` client with a single-flight `RefreshTokenHandler`
+`DelegatingHandler`; do not mutate the shared client's `DefaultRequestHeaders`.
+
+**Read [references/headless-data-loading.md](references/headless-data-loading.md) before adding or
+refactoring any section that loads data** — it has the full pattern, the `Program.cs` wiring, the
+refresh-handler design, and the add-a-section checklist.
 
 ---
 
