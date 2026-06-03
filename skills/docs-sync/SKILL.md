@@ -26,13 +26,13 @@ A fact that is true in one must be true in the other. When one drifts, the in-ap
 system-prompts/
 ├── mixcore-focused-system-prompt.md   [LOCKED — C# ref: ChatAgent.cs]
 ├── site-knowledge-system-prompt.md    [LOCKED — C# ref: SiteKnowledgeAgent.cs]
+├── planning-system-prompt.md          [LOCKED — C# ref: PlanningService.cs]  # NOTE: no YAML frontmatter — loaded raw (see caveat below)
 ├── agent/                             # Free-standing agent runtime prompts
 │   ├── content-analysis.md
 │   ├── data-analysis.md
 │   ├── generation.md
 │   ├── intent-classification.md      # 2-category (chat/plan)
 │   ├── module-analysis.md
-│   ├── planning.md
 │   ├── step-execution.md
 │   └── tool-classification.md
 ├── mcp/                               # MCP tool operation prompts
@@ -44,8 +44,7 @@ system-prompts/
 │   ├── extract-tool-params.md
 │   ├── generate-column-value.md
 │   ├── generate-mixdb-record.md
-│   ├── intent-classification-update-content.md
-│   └── planning.md
+│   └── intent-classification-update-content.md
 └── instructions/                      # AI agent & developer knowledge base
     ├── start-here.md                  # Master index
     ├── overview/
@@ -65,8 +64,10 @@ system-prompts/
     │   ├── developer-guide.md
     │   ├── mcp-tools-reference.md
     │   └── infrastructure-providers.md
-    ├── reference/
-    │   └── mix-cms-reference.md
+    ├── reference/                     # CMS-audience reference (distinct from developer/)
+    │   ├── mix-cms-reference.md       # enums, folder types, status, query operators
+    │   ├── mcp-tools-catalog.md       # complete 700+ line tool catalog (≠ developer/mcp-tools-reference.md authoring doc)
+    │   └── cms-csharp-extension-guide.md  # CMS C# extension guide (≠ developer/developer-guide.md cloud-module guide)
     ├── templates/
     │   ├── razor-syntax-guidelines.md
     │   ├── form-template.md
@@ -78,7 +79,8 @@ system-prompts/
     │   └── widget-template.md
     └── workflows/
         ├── ai-content-editor.md
-        └── mixcore:mix-mcp-build-site.md
+        ├── admin-portal.md
+        └── mix-build-site.md
 ```
 
 ### `wwwroot/mixcontent/documents/wiki/`
@@ -105,7 +107,9 @@ wiki/
 
 **Naming rules:** all file and folder names must be lowercase kebab-case (e.g., `razor-syntax-guidelines.md`, not `cshtml-razor-syntax-guidelines.md`). Never use PascalCase, underscores, or ALL-CAPS for file names.
 
-**Locked files:** 5 prompt files in `mcp/` and 2 at root are path-locked in C# — never rename or move them. Add only front matter if needed.
+**Locked files:** 5 prompt files in `mcp/` and 3 at root (`mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md`) are path-locked in C# — never rename or move them.
+
+🚨 **Runtime prompts are loaded RAW.** `SystemPromptService.LoadPrompt()` returns `File.ReadAllText(...)` verbatim — it does **not** strip YAML frontmatter. Any frontmatter on a root / `agent/` / `mcp/` prompt is injected straight into the LLM system prompt. **Do not add frontmatter to these runtime prompts**, especially strict-output ones like `planning-system-prompt.md` (which must return "ONLY a JSON array"). Frontmatter belongs only on the RAG-indexed `instructions/**` docs. (The two existing locked root files carry legacy frontmatter that already leaks; leave it unless asked, but add no more.)
 
 ---
 
@@ -126,6 +130,7 @@ wiki/
 | `plugins/mixcore/skills/mixdev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
 | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (coding standards, EF patterns) |
 | `plugins/mixcore/skills/mix-dev-module/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (module skeleton, controller/service base-class signatures) |
+| `plugins/mixcore/skills/mix-mcp-rag/SKILL.md` | `system-prompts/instructions/reference/mcp-tools-catalog.md` (RAGSearchTool section — wiki document CRUD API + tenant-scoped paths) and `system-prompts/instructions/start-here.md` (Wiki-First Rule) |
 | `system-prompts/instructions/start-here.md` | `plugins/mixcore/skills/mixcore/SKILL.md` (routing rules, checklist) |
 | `system-prompts/instructions/developer/developer-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` and `plugins/mixcore/skills/mixdev/SKILL.md` |
 | `system-prompts/instructions/developer/mcp-tools-reference.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/references/` (MCP tool authoring) |
@@ -257,7 +262,7 @@ summary: "[1-2 sentence summary for search indexing]"
 
 ## Common Gotchas
 
-**Locked prompt files cannot be moved**: `mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, and 5 files in `mcp/` are hardcoded in C# via `SystemPromptService.LoadPrompt()`. You may add front matter but must not rename or relocate them.
+**Locked prompt files cannot be moved**: `mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md`, and 5 files in `mcp/` are hardcoded in C# via `SystemPromptService.LoadPrompt()`. Never rename or relocate them — and do **not** add YAML frontmatter (it is loaded raw and leaks into the LLM prompt; see the Runtime-prompts gotcha above).
 
 **API method names drift**: When an MCP tool is renamed or its signature changes, update both the skill's `allowed-tools` list and the instruction's "MCP tools" table.
 
@@ -292,14 +297,14 @@ Wiki root:            wwwroot/mixcontent/documents/wiki/
 | `instructions/START-HERE.md` | `instructions/start-here.md` |
 | `instructions/MIXCORE-CMS-OVERVIEW.md` | `instructions/overview/mixcore-cms-overview.md` |
 | `instructions/mixdb/README.md` | `instructions/mixdb/overview.md` |
-| `instructions/reference/reference-mcp-tools.md` | `instructions/developer/mcp-tools-reference.md` |
-| `instructions/reference/developer-guide.md` | `instructions/developer/developer-guide.md` |
-| `instructions/reference/mcp-tools-reference.md` | `instructions/developer/mcp-tools-reference.md` |
+| `instructions/reference/reference-mcp-tools.md` | `instructions/reference/mcp-tools-catalog.md` (complete catalog) |
+| `instructions/reference/mcp-tools-reference.md` | `instructions/reference/mcp-tools-catalog.md` (renamed 2026-06-03 to disambiguate from developer/mcp-tools-reference.md authoring doc) |
+| `instructions/reference/developer-guide.md` | `instructions/reference/cms-csharp-extension-guide.md` (renamed 2026-06-03 to disambiguate from developer/developer-guide.md cloud-module guide) |
 | `instructions/reference/infrastructure-providers.md` | `instructions/developer/infrastructure-providers.md` |
 | `instructions/templates/cshtml-razor-syntax-guidelines.md` | `instructions/templates/razor-syntax-guidelines.md` |
 | `instructions/workflows/ai-content-editor-workflow.md` | `instructions/workflows/ai-content-editor.md` |
 | `content-analysis-prompt.md` (root) | `agent/content-analysis.md` |
-| `planning-prompt.md` (root) | `agent/planning.md` |
+| `planning-prompt.md` (root) | `planning-system-prompt.md` (root — stays at root, loaded by PlanningService.cs) |
 | `generation-system-prompt.md` (root) | `agent/generation.md` |
 | `extract-tool-params.md` (root) | `mcp/extract-tool-params.md` |
 | `wiki/rose-whisk/README.md` | `wiki/rose-whisk/index.md` |
