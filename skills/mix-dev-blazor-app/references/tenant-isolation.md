@@ -12,6 +12,15 @@ Loaded by `mixcore:mix-dev-blazor-app` whenever a Blazor Server section loads te
 
 Blazor Server components run over a persistent SignalR connection. After the initial HTTP render, `IHttpContextAccessor.HttpContext` is `null` or stale. Any service that internally calls `HttpContext.Items["ResolvedTenantId"]` returns `0` or falls back to `1` for every subsequent interaction in the circuit lifetime.
 
+### Same trap over the `"LocalApi"` loopback
+
+A portal section that reaches a REST API through the typed `"LocalApi"` `HttpClient` (the `FlowsApiClient` / `GatewayApiClient` pattern) sends a **Bearer token but no tenant cookie**. `TenantResolutionMiddleware` resolves the tenant from the JWT *cookie* / domain / path, so on the loopback call it sets **nothing** — the controller's `HttpContext.Items["ResolvedTenantId"]` is absent and any `?? 1` there silently targets the platform tenant. Two consequences:
+
+- A controller that *requires* the tenant and returns `401` when it is missing (e.g. an early `RouteController`) will reject an already-authenticated portal user. Sibling controllers (`FlowsController`, `RouteController`) fall back to tenant `1` instead — which keeps the UI working but, per the CRITICAL RULE above, is the wrong tenant in a multi-tenant deployment.
+- **Correct fix for multi-tenant management UIs:** the section already knows the real tenant (`Section?.TenantId ?? _tenantCtx.TenantId`) — forward it explicitly to the API (route segment or header) so the server doesn't have to guess. Don't rely on the loopback re-resolving it.
+
+On a genuine `401` the client should redirect (full reload) to `/p/login?returnUrl=…` so an expired session lands on sign-in rather than a silent error.
+
 ### Two-layer tenant pinning architecture
 
 ```
