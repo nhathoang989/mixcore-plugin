@@ -1,7 +1,7 @@
 {
   "name": "mixcore",
   "description": "Mixcore CMS skill suite — content CRUD via MCP, C#/Blazor feature development, MixDB, RAG/wiki, and dual-location doc sync. Skills are namespaced as mixcore:mix-mcp-cms, mixcore:mix-mcp-db, mixcore:mixdev, …",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": {
     "name": "Mixcore"
   },
