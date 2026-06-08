@@ -90,6 +90,11 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 - **C# variable declarations inside `@{ }` blocks must NOT wrap the value in `@(...)`**. The `@(...)` syntax is for inline output in HTML; inside a code block it is a syntax error.
   - WRONG: `var iId = @(item.Get<int>("id", 0));`
   - RIGHT:  `var iId = item.Get<int>("id", 0);`
+- **Generic method calls inside HTML attributes MUST use `@(...)` wrapping** — the Razor parser sees `<int>` as an HTML tag. This causes CS1503 ("cannot convert from method group") at runtime.
+  - WRONG: `value="@fbApp.Get<int>("id")"` → parser sees `<int>` as HTML tag → CS1503
+  - RIGHT: `value="@(fbApp.Get<int>("id"))"` → explicit expression boundary
+  - Also applies to any `@row.Get<T>()` directly followed by non-C# characters: `@job.Get<int>("x")s` → `@(job.Get<int>("x"))s`
+  - Non-generic calls like `@fbApp.Get("key", "")` DON'T need wrapping (no angle brackets to confuse parser)
 
 **Design quality rule (all template phases — 2, 3, 4, 5, 6):** Before generating or updating a template, check whether a frontend-design or UI design skill is available in this session (`frontend-design`, `ui-ux-pro-max`, `ui-styling`, or any skill whose description mentions UI / UX / frontend / design / styling). If one is available, invoke it first via the `Skill` tool and apply its layout, color, typography, and accessibility guidance to the markup. If none is available, proceed with this skill's conventions. See `mixcore:mix-mcp-cms` → "🎨 Design Quality" for the full rule. Output still goes only through MCP `CreateTemplate` / `UpdateTemplate`.
 
