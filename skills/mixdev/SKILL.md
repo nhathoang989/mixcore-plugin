@@ -85,6 +85,27 @@ For a guided run/verify flow you can also use the built-in `verify` or `run` ski
 
 ---
 
+## Discover backend service APIs (ServiceDiscoveryTool)
+
+Before writing C# that calls a platform service — or to confirm a method signature without grepping — use the **`ServiceDiscoveryTool`** MCP tools (served at the running host's `/mcp`, from `mix.ai`). They reflect over DI-registered service types via the in-process `ServiceRegistry` and return real method names, parameters, return types, and XML doc summaries.
+
+| Tool | What it does |
+|------|-------------|
+| `ListServices(keyword?)` | Search DI-registered service type names (case-insensitive partial match); omit `keyword` for all |
+| `DiscoverService(typeName?)` | Full API surface of one type — methods, params, return types, XML docs. Omit `typeName` to list all; ambiguous names return `candidates`, misses return Levenshtein `suggestions` |
+
+These are MCP tools, not `Skill`-tool skills — load them via the mixcore MCP server first:
+
+```
+ToolSearch  →  query: "service discovery DiscoverService ListServices"
+```
+
+Typical use: `ListServices("MixDb")` to find the service, then `DiscoverService("IMixDbDataService")` to read its real signatures before calling it from a handler or controller. If `tools/list` doesn't show them, the host isn't running the current `mix.ai` build — escalate per the router's GitHub-issue rule rather than guessing signatures.
+
+> Full parameter/return reference lives in the in-app mirror: `system-prompts/instructions/reference/mcp-tools-catalog.md` (ServiceDiscoveryTool section).
+
+---
+
 ## Combination Patterns (first skill = invoke now)
 
 - **Implement plan end-to-end** → create branch (worktree) → `superpowers:subagent-driven-development` → create PR → `superpowers:requesting-code-review` → collect experiences → `mixcore:docs-sync` (sync docs)
