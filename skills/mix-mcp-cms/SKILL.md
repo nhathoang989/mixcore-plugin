@@ -112,7 +112,7 @@ Never write docs to the project root, `wwwroot/` directly, or any path outside `
 
 | Category | Tool Methods | Key Actions |
 |----------|-------------|-------------|
-| **Templates** | `CreateTemplate`, `GetTemplate`, `UpdateTemplate`, `DeleteTemplate`, `ListTemplates` | Create/manage Razor templates |
+| **Templates** | `CreateTemplate`, `GetTemplate`, `UpdateTemplate`, `SearchReplaceTemplate`, `ValidateTemplate`, `DeleteTemplate`, `ListTemplates` | Create/manage + server-side compile-check Razor templates |
 | **Pages** | `CreatePageContent`, `GetPageContent`, `GetPageContentBySeoName`, `UpdatePageContent`, `DeletePageContent`, `ListPageContents`, `UpdatePageContentFromPrompt` | Create/manage page content |
 | **Modules** | `CreateModuleContent`, `GetModuleContent`, `GetModuleContentBySystemName`, `UpdateModuleContent`, `DeleteModuleContent`, `ListModuleContents`, `GetModulesByType`, `UpdateModuleContentFromPrompt` | Create/manage module content |
 | **Posts** | `CreatePostContent`, `GetPostContent`, `GetPostContentBySeoName`, `UpdatePostContent`, `DeletePostContent`, `ListPostContents` | Create/manage post content |
@@ -243,6 +243,7 @@ These are the strongly-typed properties available in each template type. Always 
 | "create widget template" | `CreateTemplate(folderType="Widgets", fileName="Newsletter.cshtml")` — **fileName MUST include `.cshtml`**; use `@model dynamic` |
 | "create form template" | `CreateTemplate(folderType="Forms", fileName="ContactForm.cshtml")` — **fileName MUST include `.cshtml`**; see [form-templates.md](references/form-templates.md) |
 | "create data/detail template for MixDB table" | 1. `GetMixDbBySystemName(includeColumns: true)` → confirm schema. 2. `CreateTemplate(folderType="Data", fileName="Detail.cshtml")` — `@model dynamic` + `@inject IMixDbDataService db`. 3. `UpdateMixDbTable(systemName, templateId: <id>)` to assign. See [content-creation.md](references/content-creation.md) |
+| "validate / compile-check a template" | `ValidateTemplate(templateId)` after every `CreateTemplate`/`UpdateTemplate` — returns `{ success, skipped, errors:[{ line, message, code }] }`. Fix `CS*`/`RZ*` errors before creating page content. `.liquid` → `skipped:true`. Pre-flight raw markup with `ValidateTemplate(content, folderType)`. |
 | "create a page" | Verify templateId + layoutId folderTypes → `CreatePageContent` — see [content-creation.md](references/content-creation.md) |
 | "create a module" | Verify `templateId` has `folderType="Modules"` → `CreateModuleContent` |
 | "create a post" | Verify templateId + layoutId → `CreatePostContent` |
@@ -270,6 +271,7 @@ These are the strongly-typed properties available in each template type. Always 
 ## Critical Don'ts
 
 - ❌ **Never edit template or content files directly** — use `CreateTemplate`, `UpdateTemplate`, `CreatePageContent`, `UpdatePageContent`. Direct edits bypass CMS cache invalidation and SignalR broadcasts.
+- ❌ **Never browser-verify a `.cshtml` template before `ValidateTemplate` returns `success:true`** — server-side compilation catches `CS1061`/`CS0234`/`CS1503`/`RZ*` errors in ~1s; don't spend a create-page → navigate → read-500 → fix loop on errors a compile-check would have surfaced.
 - ❌ **Never pass `fileName` without the `.cshtml` extension to `CreateTemplate`** — the CMS stores `FileName` exactly as passed and builds `TemplateFilePath` from it. Missing extension → template not found at runtime. Always: `fileName: "HomePage.cshtml"` ✅ Never: `fileName: "HomePage"` ❌
 - ❌ Never use `@Model.Content` — always `@Html.Raw(Model.Content)`
 - ❌ Never use `@row.Get<T>("field")` without wrapping — always `@(row.Get<T>("field"))`

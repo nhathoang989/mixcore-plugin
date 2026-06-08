@@ -4,6 +4,21 @@ Detailed Razor syntax rules for Mixcore templates. Loaded by `mixcore:mix-mcp-cm
 
 ---
 
+## 0. Compile-check server-side after every write (do this first)
+
+🚨 **CRITICAL RULE: after each `CreateTemplate`/`UpdateTemplate`, call `ValidateTemplate` and fix any errors before rendering a page or opening a browser.** It compiles the Razor server-side via the runtime view engine and returns `{ success, skipped, errors:[{ line, message, code }] }` in ~1s, so the syntax mistakes the rest of this file warns about (`@@`-escaping, generic-call `@(...)` wrapping, wrong `@model`, missing `.cshtml`) surface as a structured `CS*`/`RZ*` diagnostic instead of a 500 page found only by a browser round-trip.
+
+```text
+ValidateTemplate(templateId: 42)
+  → { "success": false, "errors": [ { "line": 12, "message": "'string' does not contain a definition for 'Naem'", "code": "CS1061" } ] }
+ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-flight raw markup, no DB write
+```
+
+- Loop `Validate → fix (SearchReplaceTemplate/UpdateTemplate) → Validate` until `success:true`, then create the page/module content.
+- `.liquid` templates return `skipped:true` — Razor compilation does not apply to them.
+
+---
+
 ## 1. Mandatory `@model` declarations
 
 | Template type | folderType | `@model` |

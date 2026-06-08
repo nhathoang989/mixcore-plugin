@@ -78,6 +78,17 @@ When a feature "sends email" (register, confirm-email, password-reset, tenant-in
 
 ---
 
+## mix.ai agents & hubs — never leak raw exceptions to the chat user
+
+🚨 **CRITICAL RULE:** any error that can reach the chat UI (a `BaseAgent`/specialist-agent catch, or a SignalR hub's `ReceiveError`/`ReceiveComplete`) must be sanitized through `AgentErrorMessages.From(ex)` (`Mix.AI.Application.Agents`) — never `ex.Message`. Raw text like `Status(StatusCode="Unavailable", Detail="Connection refused")` must stay in `LogError` only. The mapping: connectivity failures (gRPC `RpcException`, `SocketException`, `HttpRequestException`, `TimeoutException` — including inside an `AggregateException`) → "knowledge base unavailable" message; everything else → a generic retry message.
+
+When adding or editing an agent (`TaskAgent`, `PlanningService`, `ChatAgent`, …) or a hub (`LLMHub`, `SiteKnowledgeHub`, `AIContentEditorHub`):
+- The catch that builds the user-facing `AgentProcessResult` **Content AND Error** (and any streamed `OnChunk`/`EmitAsync` text) must use `AgentErrorMessages.From(ex)`, not the raw message.
+- **Rethrow `OperationCanceledException`** (`catch (OperationCanceledException) { throw; }`) before the general catch — a caller-cancelled request is benign; the hubs already filter it via `when (ex is not OperationCanceledException)`.
+- **RAG/vector lookups are best-effort.** `RAGProcessor.BuildContextAsync` degrades to empty context on any backend failure — keep it that way; a missing vector store must never fail the chat. The Qdrant client bounds its connect phase via `VectorDbConfiguration.ConnectTimeoutSeconds` (default 2s) so an unreachable Qdrant costs ~2s/call, not the ~5s platform default.
+
+---
+
 ## Data and JSON conventions
 
 - Keep EF Core mappings and entities compatible with existing snake_case DB naming conventions.
