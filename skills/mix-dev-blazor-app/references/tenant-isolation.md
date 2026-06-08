@@ -12,6 +12,15 @@ Loaded by `mixcore:mix-dev-blazor-app` whenever a Blazor Server section loads te
 
 Blazor Server components run over a persistent SignalR connection. After the initial HTTP render, `IHttpContextAccessor.HttpContext` is `null` or stale. Any service that internally calls `HttpContext.Items["ResolvedTenantId"]` returns `0` or falls back to `1` for every subsequent interaction in the circuit lifetime.
 
+### Same trap over the `"LocalApi"` loopback
+
+A portal section that reaches a REST API through the typed `"LocalApi"` `HttpClient` (the `FlowsApiClient` / `GatewayApiClient` pattern) sends a **Bearer token but no tenant cookie**. `TenantResolutionMiddleware` resolves the tenant from the JWT *cookie* / domain / path, so on the loopback call it sets **nothing** — the controller's `HttpContext.Items["ResolvedTenantId"]` is absent and any `?? 1` there silently targets the platform tenant. Two consequences:
+
+- A controller that *requires* the tenant and returns `401` when it is missing will reject an already-authenticated portal user. Defaulting to tenant `1` instead keeps the UI working but, per the CRITICAL RULE above, is the wrong tenant in a multi-tenant deployment. (`FlowsController` still does the bare `?? 1`.)
+- **Correct fix:** derive the tenant from the **authenticated JWT's `MixClaims.TenantId` claim** — it rides on the loopback Bearer token, is signed/server-trusted, and (unlike a client-supplied header or query param) cannot be spoofed to target another tenant. Resolve `ResolvedTenantId` → JWT claim → `1`. `RouteController` does this via `Domain/RouteTenant.Resolve(HttpContext, User)`; `MixAccountController.GetTenantId()` is the same pattern. Don't forward the tenant from the client as a trusted value.
+
+On a genuine `401` the client should redirect (full reload) to `/p/login?returnUrl=…` so an expired session lands on sign-in rather than a silent error.
+
 ### Two-layer tenant pinning architecture
 
 ```
