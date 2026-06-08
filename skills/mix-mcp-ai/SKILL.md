@@ -315,7 +315,7 @@ CreateTemplate(
 
 Include in a master layout before `@await RenderSectionAsync("Scripts", false)`:
 ```cshtml
-@await Html.PartialAsync("../Widgets/AIChatWidget.cshtml")
+@await Html.PartialAsync("../Widgets/ai-chat-widget.cshtml")
 @await RenderSectionAsync("Scripts", false)
 </body>
 </html>

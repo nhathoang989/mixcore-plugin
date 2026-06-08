@@ -48,29 +48,29 @@ Detailed Razor syntax rules for Mixcore templates. Loaded by `mixcore:mix-mcp-cm
 
 ---
 
-## 4. 🚨 Partial view syntax — ALWAYS `"/"` prefix + `.cshtml` extension
+## 4. 🚨 Partial view syntax — ALWAYS `../[FolderType]/[FileName].cshtml`
 
 🚨 **CRITICAL RULE:** Two non-negotiable requirements for every partial path:
-1. **Always** prefix with `"/"` — MVC resolves from the app root; without it, the path is treated as relative to the current view folder and 404s.
+1. **Always** prefix with `../[FolderType]/` — never a bare filename or root-relative path.
 2. **FileName MUST include the `.cshtml` extension** — `Header.cshtml`, never `Header`.
 
 ```cshtml
-✅  @await Html.PartialAsync("/Modules/Header.cshtml")
-✅  @await Html.PartialAsync("/Modules/ProductCard.cshtml", product)
-✅  @await Html.PartialAsync("/Widgets/Newsletter.cshtml")
-✅  @await Html.PartialAsync("/" + module.Template.FilePath, module)
+✅  @await Html.PartialAsync("../Modules/Header.cshtml")
+✅  @await Html.PartialAsync("../Modules/ProductCard.cshtml", product)
+✅  @await Html.PartialAsync("../Widgets/Newsletter.cshtml")
+✅  @await Html.PartialAsync("../" + module.Template.FilePath, module)
 ✅  @await Html.PartialAsync(module.Template.GetFilePath(themeName), module)
 
 ❌  @Html.Partial("Header")                       — sync, deprecated
-❌  @await Html.PartialAsync("Header")            — missing "/" prefix and .cshtml extension
-❌  @await Html.PartialAsync("Modules/Header")    — missing "/" prefix and .cshtml extension
-❌  @await Html.PartialAsync("../Modules/Header") — wrong prefix; use "/" not "../"
-❌  @await Html.PartialAsync("../Modules/Header.cshtml") — wrong prefix; use "/"
-❌  @await Html.PartialAsync(module.Template.FilePath, module) — FilePath lacks "/" → 404; prefix with "/"
+❌  @await Html.PartialAsync("Header")            — missing ../ prefix and .cshtml extension
+❌  @await Html.PartialAsync("Modules/Header")    — missing ../ prefix and .cshtml extension
+❌  @await Html.PartialAsync("/Modules/Header")   — wrong prefix; use "../" not "/"
+❌  @await Html.PartialAsync("/" + module.Template.FilePath, module) — wrong prefix; use "../"
+❌  @await Html.PartialAsync("../Modules/Header") — missing .cshtml extension
 ❌  <partial name="Modules/Header" />             — tag helper (not preferred)
 ```
 
-Path pattern: `"/[FolderType]/[FileName].cshtml"` or `"/" + template.FilePath` (FilePath is stored without a leading slash).
+Path pattern: `../[FolderType]/[FileName].cshtml`
 
 ---
 
@@ -137,7 +137,7 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
         <div class="module-section" data-module-id="@module.Id">
             @try
             {
-                @await Html.PartialAsync("/" + module.Template.FilePath, module)
+                @await Html.PartialAsync("../" + module.Template.FilePath, module)
             }
             catch (Exception ex)
             {
@@ -163,7 +163,7 @@ The try-catch ensures a broken module doesn't crash the whole page. Always wrap 
 
 @if (heroModule != null)
 {
-    @await Html.PartialAsync("/" + heroModule.Template.FilePath, heroModule)
+    @await Html.PartialAsync("../" + heroModule.Template.FilePath, heroModule)
 }
 ```
 
