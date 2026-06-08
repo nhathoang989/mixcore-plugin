@@ -265,6 +265,7 @@ Tasks:
    - Must include exactly ONE `@RenderBody()`, ONE `@RenderSection("Styles", false)`, ONE `@RenderSection("Scripts", false)`
    - Include `<!--[STYLES]-->` comment before Styles section
    - Include Bootstrap 5 CDN, Font Awesome
+   - **Favicon** — add a `<link rel="icon">` tag in `<head>` pointing to a publicly accessible URL. Generate one via `https://www.favicon.cc/?action=icon&url=https://img.icons8.com/color/48/000000/<icon-name>.png` or use `https://favicon.io/emoji-favicons/` to pick an emoji-based favicon. Common fallback: `https://img.icons8.com/color/48/000000/globe--v1.png`. The favicon MUST be a full public URL — never a relative path.
    - Navigation links from `site-architecture.md`
    - Footer with newsletter form hook
 3. Record returned `layoutId` in progress-tracker
@@ -432,6 +433,7 @@ Execute Phase 7: Verify & Fix
 | **Accent** | `#667eea` |
 | **Typography** | System font stack |
 | **Responsive** | Mobile `<768px`, Tablet `768–991px`, Desktop `≥992px` |
+| **Favicon** | Generate a public favicon URL: `https://favicon.io/emoji-favicons/` (emoji picker), `https://www.favicon.cc/?action=icon&url=<public-icon-url>` (convert any icon), or pick from `https://img.icons8.com/color/48/000000/<icon-slug>.png`. Always a full public URL in `<link rel="icon" href="...">` — never a relative path. |
 | **Images** | Full public URLs only (`https://images.unsplash.com/...`) — no relative paths |
 | **CSS escaping** | All `@media`, `@keyframes`, `@font-face` must be `@@media`, `@@keyframes`, `@@font-face` in MCP content strings |
 

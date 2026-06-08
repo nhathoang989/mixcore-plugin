@@ -279,7 +279,7 @@ In the master template (e.g. `Masters/SiteMaster.cshtml`), add the partial at th
 
 ```cshtml
 @* AI Chat Widget — includes its own <style>, CDN <script>, and JS. Must be last. *@
-@await Html.PartialAsync("Widgets/ai-chat-widget")
+@await Html.PartialAsync("../Widgets/AIChatWidget.cshtml")
 ```
 
 The widget registers global functions (`window.mixChatOpen`, etc.) so it must be included once, exactly here. Do not include it in page templates — it would be duplicated on multi-module pages.

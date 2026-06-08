@@ -241,16 +241,11 @@ CSS for the AI bubble (`.mix-b`) belongs in the template content field — imple
 
 ## Auth failure detection
 
-The hub endpoint is `[Authorize]`. When no valid token exists, ASP.NET Core redirects to the login page — returning HTML, not a 401 response. SignalR's negotiate request fails with a JSON parse error.
+The hub endpoint is `[Authorize]`. With JWT Bearer auth, an invalid or missing token returns a proper HTTP 401 response — SignalR's negotiate request fails with `statusCode === 401`. **Only show the login gate on a confirmed 401.** All other connection failures (network errors, proxy errors, parse errors, HTML redirects from misconfigured middleware) are NOT auth failures — show a generic error instead so the user knows something else is wrong.
 
 ```js
 function handleConnectError(e) {
-    var m = (e && e.message) || String(e);
-    var isAuthFail = (e && e.statusCode === 401)
-        || m.indexOf('401') !== -1
-        || m.indexOf('DOCTYPE') !== -1        // HTML redirect body
-        || m.indexOf('not valid JSON') !== -1  // parse error
-        || m.indexOf('Unexpected token') !== -1;
+    var isAuthFail = (e && e.statusCode === 401);
     if (isAuthFail) {
         showGate();   // reveal the full-cover sign-in overlay (see chat-widget.md)
     } else {
@@ -258,6 +253,8 @@ function handleConnectError(e) {
     }
 }
 ```
+
+**Why only 401?** Other error signatures (HTML bodies, JSON parse failures, "Unexpected token") can be caused by reverse-proxy error pages, misconfigured gateways, or server 500s — none of which are auth problems. Showing the login form for a network blip or a server crash confuses the user and hides the real issue.
 
 **Present sign-in as a full-cover gate, not an inline bubble.** When auth fails, reveal a `position:absolute; inset:0` overlay inside the drawer (its own bar + close, centered login form) that covers the messages list AND the input row — so a logged-out visitor can't type into a dead chat. Hide it on a successful `hub.start()` and after login. Markup, CSS, and the `showGate`/`hideGate`/`wireGate` wiring are in [references/chat-widget.md](references/chat-widget.md) § Auth failure → full-cover sign-in gate.
 
@@ -309,7 +306,7 @@ Deploy widgets via:
 ```
 CreateTemplate(
   folderType: "Widgets",
-  fileName:   "ai-chat-widget.cshtml",   // MUST include .cshtml
+  fileName:   "AIChatWidget.cshtml",   // MUST include .cshtml
   content:    "... full HTML + <style> + <script src CDN> + <script> ..."
 )
 ```
@@ -318,7 +315,7 @@ CreateTemplate(
 
 Include in a master layout before `@await RenderSectionAsync("Scripts", false)`:
 ```cshtml
-@await Html.PartialAsync("Widgets/ai-chat-widget")
+@await Html.PartialAsync("../Widgets/AIChatWidget.cshtml")
 @await RenderSectionAsync("Scripts", false)
 </body>
 </html>
@@ -412,7 +409,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] Token read from `localStorage['mix_access_token']`
 - [ ] `hub.invoke('AskAI', message, sessionId, null, null)` — provider and model default to null
 - [ ] `marked.js` CDN added for markdown rendering — `rawText` accumulator used (not `bubble.textContent`)
-- [ ] Auth failure detection checks for HTML/parse errors, not just HTTP 401
+- [ ] Auth failure detection checks **only** `statusCode === 401` — other errors (HTML, parse failures, network issues) show a generic error, not the login gate
 - [ ] Sign-in renders as a full-cover gate overlaying the whole drawer (covers messages + input), hidden on successful connect/login — not an inline bubble
 - [ ] Suggestion button click handlers call `setSend()` explicitly after setting `input.value`
 - [ ] `window.beforeunload` → `hub.stop()` to clean up the connection
@@ -430,7 +427,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 
 - Never put CSS or JS in the `styles` or `scripts` parameters of `CreateTemplate` for widget templates
 - Never use `bubble.textContent` to recover streamed text — use a separate `rawText` accumulator
-- Never check only for `statusCode === 401` on hub connect failure — ASP.NET redirect returns HTML causing a JSON parse error
+- Never check for HTML signatures or JSON parse errors to detect auth failure — only `statusCode === 401` means auth is missing. Everything else is a different kind of failure and should show a generic error, not the login gate.
 - Never look for `res.data.accessToken` in the login response — the field is `res.result.AccessToken`
 - Never render the sign-in form as an inline chat bubble in the message list — use a full-cover gate (`position:absolute; inset:0`) that overlays the whole drawer, so the input row is blocked while logged out
 - Never set `input.value` programmatically without calling `setSend()` — the `input` event does not fire

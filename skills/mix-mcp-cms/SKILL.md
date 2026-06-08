@@ -226,7 +226,7 @@ These are the strongly-typed properties available in each template type. Always 
 | `Model.ClassName` | `string` | Optional CSS wrapper class |
 | `Model.PageSize` | `int?` | Optional paging hint |
 | `Model.Type` | `MixModuleType` | `"Content"`, `"Data"`, `"ListPost"` |
-| `Model.Template` | `TemplateViewModel` | Use `Model.Template.FilePath` in PartialAsync |
+| `Model.Template` | `TemplateViewModel` | Use `"/" + Model.Template.FilePath` or `Model.Template.GetFilePath(themeName)` in PartialAsync |
 | `Model.Posts` | `List<PostContentViewModel>` | Associated posts |
 | `Model.DetailUrl` | `string` | Computed `/Module/{Id}/{SeoName}` |
 
