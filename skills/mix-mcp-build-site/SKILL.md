@@ -96,6 +96,11 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
   - Also applies to any `@row.Get<T>()` directly followed by non-C# characters: `@job.Get<int>("x")s` → `@(job.Get<int>("x"))s`
   - Non-generic calls like `@fbApp.Get("key", "")` DON'T need wrapping (no angle brackets to confuse parser)
 
+**Validate every `.cshtml` template server-side right after creating/updating it — BEFORE building page content or opening a browser.** Call `ValidateTemplate` (pass the `templateId` returned by `CreateTemplate`/`UpdateTemplate`, or raw `content` + `folderType` for pre-flight). It compiles the Razor server-side and returns `{ success, skipped, errors:[{ line, message, code }] }`, catching `CS1061`/`CS0234`/`CS1503`/`RZ*` errors in ~1s without the create-page → navigate → read-500 → fix loop. Workflow per template:
+- `CreateTemplate(...)` → `ValidateTemplate(templateId: <new id>)` → if `success:false`, fix with `SearchReplaceTemplate`/`UpdateTemplate` and re-validate until green, THEN move on.
+- In **Phase 2**, validate the master template before any page/module references it; in **Phases 3–6**, validate each template before creating the content instance that renders it. This front-loads compile errors so Phase 7 (browser) only finds runtime/data issues.
+- `.liquid` templates return `skipped:true` (Razor compilation does not apply).
+
 **Design quality rule (all template phases — 2, 3, 4, 5, 6):** Before generating or updating a template, check whether a frontend-design or UI design skill is available in this session (`frontend-design`, `ui-ux-pro-max`, `ui-styling`, or any skill whose description mentions UI / UX / frontend / design / styling). If one is available, invoke it first via the `Skill` tool and apply its layout, color, typography, and accessibility guidance to the markup. If none is available, proceed with this skill's conventions. See `mixcore:mix-mcp-cms` → "🎨 Design Quality" for the full rule. Output still goes only through MCP `CreateTemplate` / `UpdateTemplate`.
 
 ---

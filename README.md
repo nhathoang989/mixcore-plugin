@@ -53,6 +53,7 @@ Two routers sit on top and delegate to the leaf skills:
 | `mixcore:mix-dev-dotnet-cli` | `/mixcore:mix-dev-dotnet-cli` | `dotnet` build / test / run / migrations / packages |
 | `mixcore:mix-dev-migration` | `/mixcore:mix-dev-migration` | EF Core migrations across all 4 provider contexts |
 | `mixcore:mix-dev-tests` | `/mixcore:mix-dev-tests` | xUnit controller / migration / installation tests |
+| `mixcore:mix-dev-verify-mcp` | `/mixcore:mix-dev-verify-mcp` | round-trip-verify an MCP tool against a running host (isolated worktree + alt port) |
 | `mixcore:mix-dev-blazor-app` | `/mixcore:mix-dev-blazor-app` | Blazor Web App components, pages, services, render modes |
 | `mixcore:mix-dev-blazor-blueprint` | `/mixcore:mix-dev-blazor-blueprint` | shadcn-style dashboards via BlazorBlueprint.Components |
 
