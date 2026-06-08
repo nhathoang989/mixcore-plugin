@@ -32,10 +32,7 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 | Forms | "Which forms are needed — contact, newsletter, registration, or none?" |
 | Pages | "What are the main pages besides Home? (e.g. About, Services, Pricing, Blog, Portfolio)" |
 | Features | "Any special requirements — multi-language, member portal, e-commerce, or none?" |
-| Management portal | "Do you want an in-site portal page to manage the site's content (e.g. view/add/edit listings, review form submissions, manage MixDB rows), or will you manage everything through the CMS admin panel?" |
 | Design style | "Any brand colours, fonts, or design references to follow?" |
-
-> **Always ask the management-portal question** when the site has dynamic content (products, posts, submissions, listings, etc.). Many users want a lightweight front-end portal to manage their own data without the full CMS admin panel. If the user wants one, plan it as extra page(s) + module(s) (list/create/edit views over the relevant MixDB tables, gated behind login) and add it to the outline below.
 
 **3. Propose a site plan outline** before waiting for answers — show the user what you _plan_ to build based on what you know, so they can correct or confirm:
 
@@ -45,7 +42,6 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 - Content types: [inferred MixDB tables]
 - Modules: [Hero, Services grid, Testimonials …]
 - Forms: [Contact form, Newsletter …]
-- Management portal: [Yes — portal pages to manage <tables> / No — use CMS admin panel]
 - Features: [anything special detected]
 
 If this looks right, reply "go ahead" and I'll start planning.
@@ -75,6 +71,14 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 - **ALL content creation, schema changes, and data operations MUST go through MCP tools** — `CreateTemplate`, `CreatePageContent`, `CreateModuleContent`, `CreateRow`, `CreateMixDbTableFromPrompt`, etc.
 - **NEVER use Edit, Write, or any file-system tool** to create or modify templates, content, or database records during plan execution. Direct file edits bypass the CMS engine and break routing, caching, and ID tracking.
 - Planning documents (`wwwroot/mixcontent/planning/*.md`) are the only files you may write directly with file tools — everything else is MCP.
+
+**Template API reference (read before writing ANY template that queries MixDB):**
+- `IMixDbDataService` methods: `GetRowsAsync(tableName, filter?)` → `IReadOnlyList<MixDbRow>`, `GetRowAsync(tableName, id)` → `MixDbRow`
+- `MixDbRow` is a `readonly record struct` — use `.Get<T>("key")` or `.Get<T>("key", fallback)`, check `.IsEmpty` (not `== null`)
+- `MixDbFilter.Where("field", value).And("field", value, ">")` — pass `null` for no filter
+- **There is NO `SearchAsync` method and NO `SearchMixDbRequestModel` class.** These do not exist.
+- Full reference: `mixcore:mix-mcp-cms/references/mixdb-in-razor.md` — read BEFORE writing template code
+- Every page template that queries data MUST include its own `@using Mix.DataSource.Models` + `@inject Mix.DataSource.Interfaces.IMixDbDataService db` — these do NOT inherit from the master layout
 
 **CSS @ escaping rule (all phases):** In MCP `content` parameters, escape ALL CSS at-rules: `@@media`, `@@keyframes`, `@@font-face`. Never use bare `@media` inside MCP strings.
 
@@ -260,6 +264,17 @@ Tasks:
    - Footer with newsletter form hook
 3. Record returned `layoutId` in progress-tracker
 
+**🚨 CRITICAL — Verify master compiles BEFORE building pages (Step 3.5):**
+After creating the master template and at least one page that uses it, **immediately verify the master compiles without errors** before creating the rest of the pages:
+
+1. Update the Home page to use the new master + a simple page template (or the default template id=2)
+2. Navigate to the home page with Playwright OR fetch it with `curl -s <base-url>/`
+3. **Check for compilation errors** — look for `CompilationFailedException`, `CS1061`, `CS0234`, `CS0023` in the response body
+4. If the page returns HTTP 500 with Razor compilation errors: **fix the master template first**, re-verify, then proceed
+5. Only after the master compiles clean → proceed to Phase 3 (creating page templates)
+
+**Why this matters:** A single compilation error in the master layout breaks EVERY page. Fixing the master after creating 5+ pages means re-verifying all of them. One early browser check saves 4+ fix-and-retry cycles. See [[mixdb-razor-api-reference]] for the most common API mistakes (wrong method names, missing `@inject`/`@using` directives).
+
 ### `wwwroot/mixcontent/planning/phase-3-modules.md` — Module Templates & Content
 
 **Invoke `mixcore:mix-mcp-cms` skill first.**
@@ -299,7 +314,7 @@ Tasks (for each main page):
 Tasks:
 - Blog listing page: queries MixDB posts with `IMixDbDataService` in template
 - Blog post page: uses `@model Mix.Rendering.ViewModels.PostContentViewModel`
-- Category pages: filter by `category_id` via `SearchMixDbRequestModel`
+- Category pages: filter by `category_id` via `MixDbFilter.Where("category_id", id)`
 - Each page: same template → content → association flow as phase 4
 
 ### `wwwroot/mixcontent/planning/phase-6-forms.md` — Forms & Widgets
@@ -331,6 +346,7 @@ Tasks:
    - All module regions are populated — no blank or `[object Object]` output
    - Images display (not broken)
    - Razor template errors: look for yellow ASP.NET error pages or stack traces
+   - **If HTTP 500**: use `curl -s <base-url>/<slug>` to see the full compilation error in the response body — `CompilationFailedException`, `CS1061`, `CS0234`, `CS0023` are the most common. The browser screenshot only shows "Internal Server Error"; `curl` reveals the exact line and error code.
 3. **Verify forms** — for each form (phase 6), submit a test entry and confirm:
    - No 500 from type mismatch (especially numeric columns — see phase-6 numeric coercion rule)
    - Row appears in MixDB via `QueryTable`
