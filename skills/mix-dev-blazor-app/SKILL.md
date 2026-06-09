@@ -43,11 +43,12 @@ The sections below (gotchas, Aspire, CLI, task patterns, data-loading rule, UI r
 
 `@using Mix.Cloud.Ui.Components.Sections.System` makes the Razor compiler resolve `System.Collections` as `Mix.Cloud.Ui.Components.Sections.System.Collections` — hundreds of errors. Use `Administration`, `SysAdmin`, etc. instead.
 
-### ❌ `ErrorAlertDialog` and `CodeEditorField` are admin-UI-only
+### ❌ `ErrorAlertDialog` is admin-UI-only
 
-These components live in `mix.admin.ui/Components/Shared/`. Don't reference them from `mix.cloud.ui`. Replace with:
+`ErrorAlertDialog` lives in `mix.admin.ui/Components/Shared/`. Don't reference it from `mix.cloud.ui`. Replace with:
 - `ErrorAlertDialog` → `@if (_showError) { <BbAlert Variant="AlertVariant.Danger" Dismissible OnDismiss="@(() => _showError = false)">@_loadError</BbAlert> }`
-- `CodeEditorField` → `<BbTextarea @bind-Value="@_field" Class="font-mono text-sm w-full" />`
+
+`CodeEditorField` is **not** admin-only — it is a **shared** component in `src/platform/common/mix.ui.shared/Components/Shared/CodeEditorField.razor`, so it is usable from `mix.cloud.ui`. If you do want a plain textarea instead, use `<BbTextarea @bind-Value="@_field" Class="font-mono text-sm w-full" />`.
 
 ### ❌ Don't use `NavigationManager.NavigateTo()` for in-dashboard navigation
 
@@ -91,7 +92,7 @@ public async ValueTask DisposeAsync()
 { "SomeApi": { "BaseUrl": "http://localhost:5059" } }
 ```
 
-Register in `src/mixcore.host/Program.cs`:
+Register in `src/host/mixcore.host/AppHost.cs`:
 
 ```csharp
 var api = builder.AddProject<Projects.Mix_Api>("some-service-name");
@@ -107,7 +108,7 @@ var ui  = builder.AddProject<Projects.YourApp>("your-app-name").WithReference(ap
 dotnet new blazor -n YourApp --interactivity Server --framework net10.0 -o src/apps/YourApp
 
 # Add to solution
-dotnet sln src/mixcore.sln add src/apps/YourApp/YourApp.csproj
+dotnet sln src/MixCore.Cloud.sln add src/apps/YourApp/YourApp.csproj
 
 # Add project reference
 dotnet add src/apps/YourApp/YourApp.csproj reference src/modules/mix.lib/mix.lib.csproj
@@ -116,7 +117,7 @@ dotnet add src/apps/YourApp/YourApp.csproj reference src/modules/mix.lib/mix.lib
 dotnet run --project src/apps/YourApp
 
 # Run under Aspire
-dotnet run --project src/mixcore.host
+dotnet run --project src/host/mixcore.host
 ```
 
 ---

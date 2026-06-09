@@ -5,12 +5,16 @@ repo. The live docs at blazorblueprintui.com are the upstream source of truth, b
 below are what actually compiles and matches existing conventions here. When they disagree with a
 guess, trust these — they were derived from working code.
 
-## Modals / slide-outs → use `BbSheet`, not `BbDialog`
+## Overlays → both `BbSheet` (side drawers) and `BbDialog` (centered modals) are used
 
-There is **no `BbDialog`/`BbModal` usage anywhere in this codebase.** Every modal, drawer, and
-create/edit form is a `BbSheet`. Use it for new overlays.
+Both are in active use: `BbSheet` for **side drawers / slide-out create-edit forms**, and `BbDialog`
+(`BbDialogContent` / `BbDialogHeader` / `BbDialogTitle` / `BbDialogDescription` / `BbDialogFooter` /
+`BbDialogClose`) for **centered modal dialogs**. `BbDialog` is used in
+`mix.cloud.ui/Components/Sections/Network/RouteEditorDialog.razor`, with a `<BbDialogProvider />`
+rendered once in `mix.cloud.ui/Components/CloudDashboard.razor` (alongside `<BbPortalHost />`). Pick
+`BbSheet` for a side drawer, `BbDialog` for a centered modal.
 
-Controlled (programmatic open, e.g. opened from a row action):
+`BbSheet`, controlled (programmatic open, e.g. opened from a row action):
 
 ```razor
 <BbSheet Open="@_open" OpenChanged="@(v => { if (!v) Close(); })">   @* or @bind-Open *@
@@ -36,7 +40,8 @@ present in dashboard layouts).
 
 Reference files: `mix.admin.ui/Components/Projects/{IssuesSection,GoalsSection,KanbanSection}.razor`,
 `mix.cloud.ui/Components/Sections/Data/CmsDomainsSection.razor`,
-`mix.cloud.ui/Components/Sections/Automation/{CreateEditFlowDialog,RunHistoryPanel}.razor`.
+`mix.cloud.ui/Components/Sections/Automation/{FlowsSection,FlowEditSection,FlowRunHistorySection}.razor`.
+For `BbDialog`: `mix.cloud.ui/Components/Sections/Network/RouteEditorDialog.razor`.
 
 ## `BbSelect` is compositional
 
@@ -53,12 +58,15 @@ Not a simple bound list — it needs the trigger/value/content/item parts:
 </BbSelect>
 ```
 
-## `BbSwitch` uses `Checked` / `CheckedChanged`
+## `BbSwitch` uses `Checked` / `CheckedChanged` (and `@bind-Checked`)
 
-NOT `Value`/`ValueChanged`, and there is no `@bind-Checked` in use:
+NOT `Value`/`ValueChanged`. Use either the explicit pair or the `@bind-Checked` shorthand —
+**both are valid and in use** (`@bind-Checked` is used in `PostEditorSection.razor`,
+`PageEditorSection.razor`, and `ThemeImportCombinedStep.razor`):
 
 ```razor
-<BbSwitch Checked="@x" CheckedChanged="@(v => x = v)" />
+<BbSwitch Checked="@x" CheckedChanged="@(v => x = v)" />   @* explicit *@
+<BbSwitch @bind-Checked="@x" />                            @* shorthand — equivalent *@
 ```
 
 ## Other confirmed forms

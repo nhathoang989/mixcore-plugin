@@ -31,7 +31,7 @@ The MCP tools live in the **mix.ai server** (endpoint `/mcp`, requires `AITools`
 
 ## Cron expressions
 
-`cronExpression` is the **standard 5-field** dialect, evaluated in **UTC** (v1 ignores per-job `timeZone`):
+`cronExpression` is the **standard 5-field** dialect, evaluated in the job's `timeZone` (IANA/Windows id; defaults to UTC when unset):
 
 ```
 ┌───────────── minute        (0–59)
@@ -126,7 +126,7 @@ RunScheduledJobNow(id: "<job-guid>")   // manual run — cron cursor (nextRunUtc
 ## Key rules
 
 - **`actionType`** must be exactly `Webhook` or `QueuePublish` (case-insensitive). Anything else is rejected.
-- **`cronExpression`** is 5-field UTC; it is validated on create and update. `timeZone` is accepted but v1 evaluates all crons in UTC.
+- **`cronExpression`** is 5-field; it is validated on create and update. It is evaluated in the job's `timeZone` (IANA/Windows id; defaults to UTC when unset) — `CronEvaluator.GetNextOccurrence` converts UTC → job tz → next occurrence → back to UTC; an unknown/blank/`"UTC"` id falls back to UTC.
 - **`UpdateScheduledJob` is a full replace** of editable fields (name, description, cronExpression, timeZone, actionType, actionConfig, isEnabled) — always pass the values you want to keep. In particular, pass the current `isEnabled` explicitly; the default `true` will re-enable a job you deliberately disabled.
 - **`RunScheduledJobNow` records a manual run and does NOT advance `nextRunUtc`** — the next scheduled fire is unaffected. Use it to test a job's action without disturbing the schedule.
 - **`DeleteScheduledJob`** requires `confirm:"YES"` (exact) and is irreversible.

@@ -552,7 +552,7 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
 ## Auth failure → full-cover sign-in gate
 
-When the hub endpoint is `[Authorize]` and the user has no token, ASP.NET Core redirects `/hubs/site-knowledge/negotiate` to the HTML login page. SignalR gets `<!DOCTYPE html>` where it expects JSON negotiation — this surfaces as a `SyntaxError`, not an HTTP 401.
+The `/hubs/site-knowledge` hub is mapped with `.RequireAuthorization()` using JWT Bearer auth (`mix.ai/Startup.cs`), so an unauthenticated `negotiate` returns a proper **HTTP 401** — `e.statusCode === 401` is the documented, reliable signal (see SKILL.md). The DOCTYPE/JSON-parse checks below are **optional belt-and-suspenders fallbacks** for misconfigured deployments where a reverse-proxy or cookie-auth middleware redirects `/hubs/site-knowledge/negotiate` to an HTML login page instead of returning 401 JSON (SignalR then sees `<!DOCTYPE html>` and throws a `SyntaxError`). On a standard mixcore-cloud setup you can rely on `statusCode === 401` alone.
 
 **Present the login as a full-cover gate that overlays the entire widget**, not as a message appended into the chat list. The gate is an `position:absolute; inset:0` panel inside the drawer with its own title bar + close button and a centered login form, shown when the hub fails auth and hidden on a successful sign-in. This blocks the messages list AND the input row so an unauthenticated user can't type into a dead chat, and it reads as a deliberate "sign in to continue" screen rather than a stray bubble. (The drawer is `position:fixed`, so it is the containing block for the `inset:0` gate.)
 
@@ -561,8 +561,9 @@ When the hub endpoint is `[Authorize]` and the user has no token, ASP.NET Core r
 ```js
 hub.start().catch(function(e) {
     var m = (e && e.message) || String(e);
-    var isAuthFail = (e && e.statusCode === 401)
+    var isAuthFail = (e && e.statusCode === 401)   // primary, reliable signal (hub is Bearer/.RequireAuthorization)
         || m.indexOf('401') !== -1
+        // optional fallbacks — only fire on misconfigured deployments that redirect negotiate to an HTML login page:
         || m.indexOf('DOCTYPE') !== -1
         || m.indexOf('not valid JSON') !== -1
         || m.indexOf('Unexpected token') !== -1;
@@ -675,9 +676,9 @@ Call `hideGate()` from the hub's successful `.start()` too, so a valid token nev
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Hub connect fails with `SyntaxError: Unexpected token '<'` or `"<!DOCTYPE"... is not valid JSON` | Unauthenticated user — ASP.NET Core auth middleware redirects to HTML login page instead of returning 401 JSON | Detect HTML parse errors in `.catch()` and show login form: check `m.indexOf('DOCTYPE')`, `m.indexOf('not valid JSON')`, `m.indexOf('Unexpected token')` in addition to `statusCode === 401` |
+| Hub connect fails with `SyntaxError: Unexpected token '<'` or `"<!DOCTYPE"... is not valid JSON` | **Misconfigured deployment only** — a reverse-proxy or cookie-auth middleware redirected `negotiate` to an HTML login page instead of returning 401 JSON | Belt-and-suspenders fallback: also check `m.indexOf('DOCTYPE')`, `m.indexOf('not valid JSON')`, `m.indexOf('Unexpected token')` in addition to `statusCode === 401` |
 | Login succeeds but widget shows "Invalid response from server" | Wrong field path — `ApiResponseModel<T>` uses `Result` not `data`; `TokenResponseModel.AccessToken` is PascalCase | Read: `var r = res.result \|\| res.Result; var tok = r.accessToken \|\| r.AccessToken;` |
-| Hub connect fails with 401 (no HTML) | Token not in `localStorage['mix_access_token']` or expired | Verify login flow sets this key; inspect Network → WS handshake headers |
+| Hub connect fails with 401 (the expected case) | Token not in `localStorage['mix_access_token']` or expired — the hub is `.RequireAuthorization()` (Bearer), so it returns proper 401 JSON | Verify login flow sets this key; inspect Network → WS handshake headers. Detect with `statusCode === 401` and show the login gate |
 | Suggestion button click populates input but send button stays disabled | Programmatic `input.value =` does not fire the `input` event | Call `setSend()` explicitly after setting `input.value` |
 | AI responses show raw markdown (e.g. `[link text](/url)` instead of a link) | `marked.js` not loaded, or `bubble.innerHTML = fmt(text)` not called | Add `marked.js` CDN; use `rawText` accumulator + `bubble.innerHTML = fmt(rawText)` |
 | Razor throws `@keyframes` error at render | Unescaped `@` in CSS | Change all `@keyframes`, `@media`, `@font-face` to `@@keyframes`, `@@media`, `@@font-face` |

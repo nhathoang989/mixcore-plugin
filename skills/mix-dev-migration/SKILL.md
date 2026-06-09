@@ -164,7 +164,7 @@ Avoid generic names like `Update1` — the name is permanent and appears in the 
 dotnet test src/tests/mix.database.migrations.tests
 ```
 
-**All 117 tests require real database connections to PostgreSQL, MySQL, SqlServer, and SQLite.** There are no in-memory SQLite tests. `appsettings.example.json` is a leftover — ignore it; **connection strings come from environment variables**, not JSON.
+**All ~123 tests require real database connections to PostgreSQL, MySQL, SqlServer, and SQLite.** There are no in-memory SQLite tests. `appsettings.example.json` is a leftover — ignore it; **connection strings come from environment variables**, not JSON.
 
 ### Test credentials: `.env.tests` (repo root)
 
@@ -240,10 +240,9 @@ Run once per context to remove the last migration from that provider.
 
 ## Apply migrations to a running database
 
-Migrations are **applied automatically on app startup** via `MixAutoMigrateHostedService` (`src/platform/mix.lib/Services/MixAutoMigrateHostedService.cs`):
+Migrations are **applied automatically on app startup**, inline in `src/platform/mix.lib/Extensions/ServiceCollectionExtensions.cs` (the `RunPendingMixMigrations` method, called once from `Program.cs` before `app.Run()`):
 
-- Registered in `AddMixCoreServices` as a hosted service
-- Runs only when `InitStatus == InitStep.Done` (site fully initialized)
+- Runs only when `InitStatus == InitStep.Done` (site fully initialized) — otherwise returns immediately
 - Calls `DatabaseService.UpdateMixCmsContextAsync()` → `MigrateDbContextAsync()` → `DbContext.Database.MigrateAsync()` for each context
 
 **To apply a new migration: restart the app.** No `dotnet ef database update` needed in normal operation.

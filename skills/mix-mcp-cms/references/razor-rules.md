@@ -61,6 +61,8 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 ❌  @Html.Raw(userInput)        — XSS risk with user-submitted content
 ```
 
+⚠️ **`@Json.Serialize` camelCases keys.** ASP.NET Core's `IJsonHelper` lowercases PascalCase property names by default (`Title` → `title`, `Facebook` → `facebook`), so inline JS that reads PascalCase keys will break. Use a case-insensitive read, lowercase/snake_case keys, or serialize a `Dictionary`/anonymous object with the exact keys you want.
+
 ---
 
 ## 4. 🚨 Partial view syntax — ALWAYS `../[FolderType]/[FileName].cshtml`
@@ -73,19 +75,19 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 ✅  @await Html.PartialAsync("../Modules/Header.cshtml")
 ✅  @await Html.PartialAsync("../Modules/ProductCard.cshtml", product)
 ✅  @await Html.PartialAsync("../Widgets/Newsletter.cshtml")
-✅  @await Html.PartialAsync("../" + module.Template.FilePath, module)
-✅  @await Html.PartialAsync(module.Template.GetFilePath(themeName), module)
+✅  <partial name="@module.TemplateFilePath" model="module" />   @* module.TemplateFilePath is already a leading-slash absolute path, e.g. /Templates/MyTheme/Header.cshtml *@
 
 ❌  @Html.Partial("Header")                       — sync, deprecated
 ❌  @await Html.PartialAsync("Header")            — missing ../ prefix and .cshtml extension
 ❌  @await Html.PartialAsync("Modules/Header")    — missing ../ prefix and .cshtml extension
 ❌  @await Html.PartialAsync("/Modules/Header")   — wrong prefix; use "../" not "/"
-❌  @await Html.PartialAsync("/" + module.Template.FilePath, module) — wrong prefix; use "../"
+❌  @await Html.PartialAsync("../" + module.Template.FilePath, module) — `ModuleContentViewModel` has NO `Template` nav property; use `module.TemplateFilePath`
 ❌  @await Html.PartialAsync("../Modules/Header") — missing .cshtml extension
-❌  <partial name="Modules/Header" />             — tag helper (not preferred)
 ```
 
-Path pattern: `../[FolderType]/[FileName].cshtml`
+Two ways to name a partial:
+- **Literal hand-authored partials** (`Header.cshtml`, `ProductCard.cshtml`): `../[FolderType]/[FileName].cshtml` with `Html.PartialAsync`.
+- **A module's own template** (rendered from a `ModuleContentViewModel`): use `module.TemplateFilePath` directly — it is already a leading-slash **absolute** path (e.g. `/Templates/MyTheme/Header.cshtml`) set by the content handlers. Do NOT prefix `"../"` and do NOT use `module.Template.FilePath` — the rendering `Mix.Rendering.ViewModels.ModuleContentViewModel` has no `Template` nav property, only `string? TemplateFilePath`.
 
 ---
 
@@ -110,15 +112,17 @@ Path pattern: `../[FolderType]/[FileName].cshtml`
 
 Each `@RenderSection` name must appear **exactly once**. Duplicating any section name causes `InvalidOperationException: The section 'X' has already been rendered.`
 
-**Required vs optional sections:**
-| Section | Master must declare | Page must provide |
+**Required vs optional sections (these apply to the MASTER ↔ host-view layer only):**
+| Section | Master must declare | Provided by |
 |---|---|---|
-| `Seo` | ✅ Required in every master | ❌ Optional (pages fill when needed) |
-| `Styles` | ✅ Required in every master | ❌ Optional |
-| `Scripts` | ✅ Required in every master | ❌ Optional |
+| `Seo` | ✅ Required in every master | The host view (`PublicPage.cshtml`), built from the page's SEO fields |
+| `Styles` | ✅ Required in every master | The host view, from the template's `Styles` field |
+| `Scripts` | ✅ Required in every master | The host view, from the template's `Scripts` field |
 | `Schema` | Optional | Optional |
 
-Pages inject meta tags, OG tags, and structured data via `@section Seo { <meta ...> }`. The master must declare the slot or those tags are silently dropped.
+🚨 **Pages/Modules templates are rendered as nested `<partial>` by the host view** (`PublicPage.cshtml` does `<partial name="@Model.TemplateFilePath" model="@Model" />`). `@section` blocks declared **inside a partial are silently dropped** — Razor only honors `@section` in a view that participates in the layout (the host view / master). The host view itself supplies `@section Seo`, `@section Styles`, and `@section Scripts`, pulling Styles/Scripts from the template's `Styles`/`Scripts` fields.
+
+**Therefore: put page/module CSS and JS in the template's `Styles`/`Scripts` fields (or inline in the body) — NOT in `@section Styles { … }` / `@section Scripts { … }` blocks, which only work in the host/master layer.**
 
 ---
 
@@ -152,13 +156,13 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
         <div class="module-section" data-module-id="@module.Id">
             @try
             {
-                @await Html.PartialAsync("../" + module.Template.FilePath, module)
+                <partial name="@module.TemplateFilePath" model="module" />
             }
             catch (Exception ex)
             {
                 <div class="module-error p-4 border border-danger rounded my-2">
                     <strong>Module error:</strong> @module.Title (@module.SystemName)<br>
-                    @ex.Message — Template: @module.Template?.FilePath
+                    @ex.Message — Template: @module.TemplateFilePath
                 </div>
             }
         </div>
@@ -166,23 +170,25 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
 }
 ```
 
-The try-catch ensures a broken module doesn't crash the whole page. Always wrap `module.Template.FilePath` renders in try-catch.
+The try-catch ensures a broken module doesn't crash the whole page. Always wrap module renders in try-catch. `module.TemplateFilePath` is already a leading-slash absolute path (`/Templates/.../X.cshtml`) — there is no `module.Template` nav property.
 
 ### Pattern 2: Render a specific module by system name
 
+`PageContentViewModel` exposes only `List<ModuleContentViewModel>? Modules` — there is **no** `GetModule(...)` method. Select by `SystemName` with LINQ:
+
 ```cshtml
 @{
-    var heroModule = Model.GetModule("hero-banner");      // exact systemName only
-    var gridModule = Model.GetModule("services-grid");
+    var heroModule = Model.Modules?.FirstOrDefault(m => m.SystemName == "hero-banner");   // exact systemName only
+    var gridModule = Model.Modules?.FirstOrDefault(m => m.SystemName == "services-grid");
 }
 
 @if (heroModule != null)
 {
-    @await Html.PartialAsync("../" + heroModule.Template.FilePath, heroModule)
+    <partial name="@heroModule.TemplateFilePath" model="heroModule" />
 }
 ```
 
-**Always call `ListModuleContents` to get exact `systemName` values before using `Model.GetModule()`.** Never guess — display names will return null.
+**Always call `ListModuleContents` to get exact `systemName` values before filtering `Model.Modules`.** Never guess — a wrong `SystemName` returns null.
 
 ---
 

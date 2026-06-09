@@ -169,7 +169,7 @@ create_relationship(
     propertyName: "categories",            // required (NOT NULL)
     sourceColumnName: "id",                // required (NOT NULL)
     destinationColumnName: "category_id",  // required (NOT NULL)
-    type: "OneToMany"                      // OneToMany | ManyToMany | ManyToOne | OneToOne
+    type: "OneToMany"                      // OneToMany | ManyToMany (the only two values in MixDbTableRelationshipType)
 )
 ```
 
@@ -182,7 +182,7 @@ create_relationship(
 ```
 AI-driven:
   CreateMixDbTableFromPrompt(displayName: "BrandName Products",
-      schemaDescription: "name (string, required), price (decimal), image_url (string)")
+      schemaDescription: "name (string, required), price (double), image_url (string)")
   → Creates table + columns + migration in one call
 
 Explicit:
