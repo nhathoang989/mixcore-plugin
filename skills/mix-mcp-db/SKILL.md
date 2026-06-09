@@ -123,9 +123,10 @@ mcp__mixcore__create_mix_db_table_from_prompt(
 )
 ```
 
-### Step 3 — Migrate the table
+### Step 3 — Migration (automatic)
 
-**Always call migrate immediately after create** to apply DDL to the underlying database:
+Migration runs **automatically** on table create/save — there is normally no manual step here.
+Only call `migrate_mix_db_table` explicitly after schema drift, manual column edits, or recovery:
 
 ```
 mcp__mixcore__migrate_mix_db_table(systemName: "blog_posts")
@@ -249,7 +250,7 @@ mcp__mixcore__update_mix_db_table(
 ```
 mcp__mixcore__query_table(
   tableName: "blog_posts",
-  filterJson: '{"status":"Published"}'
+  filterJson: '[{"fieldName":"status","value":"Published","operator":"="}]'
 )
 ```
 
