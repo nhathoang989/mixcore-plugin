@@ -27,6 +27,7 @@ Before any MCP call, resolve `{MCP_PREFIX}`:
 | **MixDB queries in Razor** — `IMixDbDataService`, `MixDbRow`, `MixDbFilter`, naming conventions | [references/mixdb-in-razor.md](references/mixdb-in-razor.md) |
 | **Data loading paths** — `QueryTable` vs `QueryRows` vs Razor injection, JSON filter format | [references/data-loading.md](references/data-loading.md) |
 | **Content creation** — folderType verification, template assignment, phase plan | [references/content-creation.md](references/content-creation.md) |
+| **Template ViewModels** — Page/Post/Module/Widget `Model` properties, `@model` matrix | [references/viewmodels.md](references/viewmodels.md) |
 | **Form templates** — `frm-mixdb-ajax`, JS handler, hidden fields, API endpoint | [references/form-templates.md](references/form-templates.md) |
 | **Live MCP tool signatures and enums** | Use `ToolSearch` with `select:{MCP_PREFIX}<tool_name>` — schemas loaded directly from server |
 | **AI chat widgets** — SiteKnowledgeHub integration, SignalR frontend, drawer pattern | Use `mixcore:mix-mcp-ai` skill |
@@ -181,54 +182,11 @@ Query MixDb tables using natural language:
 
 ## ViewModel Properties
 
-These are the strongly-typed properties available in each template type. Always use `@Html.Raw()` for HTML fields.
-
-### PageContentViewModel (`folderType="Pages"`)
-
-| Property | Type | Notes |
-|---|---|---|
-| `Model.Id` | `int` | Page content ID |
-| `Model.Title` | `string` | Page title |
-| `Model.Content` | `string` | **HTML** — always `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Short description — `@Html.Raw(Model.Excerpt)` |
-| `Model.SeoName` | `string` | URL slug |
-| `Model.Modules` | `List<ModuleContentViewModel>` | Associated modules (see [razor-rules.md](references/razor-rules.md) §7) |
-| `Model.LastModified` | `DateTime?` | Use null-conditional: `Model.LastModified?.ToString(...)` |
-| `Model.ModifiedBy` | `string?` | Username of last editor |
-
-### PostContentViewModel (`folderType="Posts"`)
-
-| Property | Type | Notes |
-|---|---|---|
-| `Model.Id` | `int` | Post ID |
-| `Model.Title` | `string` | Post title |
-| `Model.Content` | `string` | **HTML** — always `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Teaser — `@Html.Raw(Model.Excerpt)` |
-| `Model.SeoName` | `string` | URL slug |
-| `Model.CreatedDateTime` | `DateTime` | Creation date — always present |
-| `Model.PublishedDateTime` | `DateTime?` | Publication date |
-| `Model.ModifiedBy` | `string?` | Author/editor name |
-| `Model.Image` | `string?` | Featured image URL |
-| `Model.Tags` | `string?` | Comma-separated tags |
-| `Model.Source` | `string?` | Content source |
-
-### ModuleContentViewModel (`folderType="Modules"`)
-
-| Property | Type | Notes |
-|---|---|---|
-| `Model.Id` | `int` | Module ID |
-| `Model.Title` | `string` | Module title |
-| `Model.SystemName` | `string` | Unique slug — use in `Model.GetModule()` |
-| `Model.Content` | `string` | **HTML** — `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Short HTML — `@Html.Raw(Model.Excerpt)` |
-| `Model.SeoName` | `string` | URL slug |
-| `Model.Priority` | `int` | Display order |
-| `Model.ClassName` | `string` | Optional CSS wrapper class |
-| `Model.PageSize` | `int?` | Optional paging hint |
-| `Model.Type` | `MixModuleType` | `"Content"`, `"Data"`, `"ListPost"` |
-| `Model.Template` | `TemplateViewModel` | Use `"../" + Model.Template.FilePath` or `Model.Template.GetFilePath(themeName)` in PartialAsync |
-| `Model.Posts` | `List<PostContentViewModel>` | Associated posts |
-| `Model.DetailUrl` | `string` | Computed `/Module/{Id}/{SeoName}` |
+Each template type exposes a strongly-typed `Model` (Page/Post/Module) or `@model dynamic`
+(Widget/Form/Master/Data). The full per-type property tables, the `@model` matrix, and the
+Widget/Form notes live in **[references/viewmodels.md](references/viewmodels.md)** — load it before
+writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fields
+(`Content`, `Excerpt`).
 
 ---
 
