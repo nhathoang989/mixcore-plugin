@@ -155,17 +155,21 @@ Format: `BrandName [TableDescription]`
 | `CoffeeShop Orders` | `<site_name>_orders` |
 
 - Use **system names** in all queries, templates, and code
-- Use **display names** in `CreateMixDbRelationshipFromPrompt` (not system names)
-- After creating a table, call `GetMixDbBySystemName` to get the actual system name
+- After creating a table, call `GetMixDbBySystemName(includeColumns: true)` to get the actual system name and numeric `id`
 
-### Relationship creation — takes display names, not system names
+### Relationship creation — takes numeric table IDs
+
+`create_relationship` takes the **numeric table IDs** (`parentId`/`childId`), not display or system names — there is no `CreateMixDbRelationshipFromPrompt` tool. Look up each id with `GetMixDbBySystemName` first. `propertyName`, `sourceColumnName`, and `destinationColumnName` are NOT NULL in the DB — always set them.
 
 ```
-CreateMixDbRelationshipFromPrompt(
-    sourceTableName: "Brand_Name Products",      ✅ display name
-    destinateTableName: "Brand_Name Categories", ✅ display name
+create_relationship(
+    parentId: 12,                          // parent/source table id
+    childId: 8,                            // child/destination table id
     displayName: "Product Category",
-    relationshipType: "OneToMany"
+    propertyName: "categories",            // required (NOT NULL)
+    sourceColumnName: "id",                // required (NOT NULL)
+    destinationColumnName: "category_id",  // required (NOT NULL)
+    type: "OneToMany"                      // OneToMany | ManyToMany | ManyToOne | OneToOne
 )
 ```
 

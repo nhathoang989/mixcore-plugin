@@ -249,7 +249,7 @@ These are the strongly-typed properties available in each template type. Always 
 | "create a post" | Verify templateId + layoutId → `CreatePostContent` |
 | "create MixDb table" | `CreateMixDbTableFromPrompt` (AI) — use brand prefix in displayName |
 | "add column to table" | `CreateColumn` (explicit) or `AddColumnToTable` (AI prompt) |
-| "create table relationship" | `CreateMixDbRelationshipFromPrompt` with DISPLAY names, not system names |
+| "create table relationship" | `create_relationship` with numeric table IDs (`parentId`/`childId`) — look up ids via `GetMixDbBySystemName` |
 | "verify table schema" | `GetMixDbBySystemName(includeColumns=true)` |
 | "query internal MixDb via MCP" | `QueryTable(tableName, filterJson)` — see [data-loading.md](references/data-loading.md) Path A |
 | "query external DataSource via MCP" | `QueryRows(...)` — see [data-loading.md](references/data-loading.md) Path B |
@@ -283,7 +283,7 @@ These are the strongly-typed properties available in each template type. Always 
 - ❌ Never set `templateId` or `layoutId` to a non-existent or wrong-folderType template
 - ❌ Never put content body (`content`, `excerpt`) in CSHTML — HTML only
 - ❌ Never use display names in MixDb queries — always system names (`<site_name>_table`)
-- ❌ Never use system names in `CreateMixDbRelationshipFromPrompt` — it takes display names
+- ❌ Never pass display or system names as the parent/child key to `create_relationship` — it takes numeric table IDs (`parentId`/`childId`); there is no `CreateMixDbRelationshipFromPrompt` tool
 - ❌ Never guess module system names — call `ListModuleContents` first
 - ❌ Never call `MigrateTable` — this tool does not exist; migration is automatic
 - ❌ Never use integer folderType values — string enum values only (`"Pages"` not `1`)

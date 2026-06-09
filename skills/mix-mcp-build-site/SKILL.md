@@ -251,7 +251,7 @@ Create `wwwroot/mixcontent/planning/phase-N-*.md` files before executing. Each f
 Tasks:
 1. Create all MixDB tables from `mixdb-schema.md` using `CreateMixDbTableFromPrompt`
 2. For each table: call `GetMixDbBySystemName(includeColumns: true)` to confirm exact system names and column names — record in progress-tracker
-3. Create relationships using `CreateMixDbRelationshipFromPrompt` (display names, not system names)
+3. Create relationships using `create_relationship` (numeric table IDs `parentId`/`childId` — look up via `GetMixDbBySystemName`)
 4. Seed initial data with `CreateRow` for each table (3–5 realistic records, full public image URLs)
 5. Verify data with `QueryTable`
 6. **(Optional) Record-detail templates** — for each table flagged in `mixdb-schema.md` as needing a per-record detail page (e.g. `/products/{id}`, `/blog-posts/{slug}`):
