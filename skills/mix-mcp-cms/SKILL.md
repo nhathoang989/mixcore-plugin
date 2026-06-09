@@ -214,7 +214,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 | "query MixDb in Razor template" | `@inject IMixDbDataService db` — see [mixdb-in-razor.md](references/mixdb-in-razor.md) |
 | "write a row" | `CreateRow(dataSourceName: null, ...)` — see [data-loading.md](references/data-loading.md) Path C |
 | "inspect CMS database" | `ExecuteQuery` (SELECT only) or `GetTableData` |
-| "get module system names" | `ListModuleContents` → use exact systemName in `Model.GetModule()` |
+| "get module system names" | `ListModuleContents` → filter `Model.Modules` by exact `SystemName` (e.g. `Model.Modules?.FirstOrDefault(m => m.SystemName == "x")`) |
 | "link page to module" | `CreatePageModuleAssociation` |
 | "link post to page" | `CreatePagePostAssociation` |
 | "reorder modules on page" | `ReorderModulesOnPage(pageId, moduleOrderJson)` |
@@ -246,8 +246,8 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 - ❌ Never call `MigrateTable` — this tool does not exist; migration is automatic
 - ❌ Never use integer folderType values — string enum values only (`"Pages"` not `1`)
 - ❌ Never duplicate `@RenderSection("Styles", false)` in a master layout — each section exactly once
-- ❌ Never use `Model.GetModule("display name")` — always use exact `systemName` from `ListModuleContents`
-- ❌ Never skip try-catch when rendering `module.Template.FilePath` in a loop — a broken module will crash the whole page without it
+- ❌ Never call `Model.GetModule(...)` — it doesn't exist; filter `Model.Modules` by exact `SystemName` from `ListModuleContents` (`Model.Modules?.FirstOrDefault(m => m.SystemName == "x")`)
+- ❌ Never skip try-catch when rendering `module.TemplateFilePath` in a loop — a broken module will crash the whole page without it (and there is no `module.Template` nav property — use `module.TemplateFilePath`)
 - ❌ Never write MixDB template code without first calling `GetMixDbBySystemName(includeColumns: true)` — field names are case-sensitive
 - ❌ Never use `@model dynamic` in a Page or Post template — both require their typed ViewModel
 - ❌ Never use a typed ViewModel in a Form template — form templates require `@model dynamic`

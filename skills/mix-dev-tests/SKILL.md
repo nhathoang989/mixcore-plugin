@@ -24,7 +24,7 @@ All paths are relative to the mixcore-cloud repo root.
 | `src/tests/mix.installation.tests` | `InitCmsController` — all installation endpoints |
 
 **Tests always run sequentially.** `[assembly: CollectionBehavior(DisableTestParallelization = true)]` must not be removed.
-`DatabaseService` reads/writes `wwwroot/mixcontent/databases.json` at construction; parallel runs corrupt that file.
+`DatabaseService` reads/writes `wwwroot/mixcontent/setting-files/databases.json` at construction; parallel runs corrupt that file.
 
 ---
 
@@ -51,15 +51,18 @@ dotnet test src/tests/mix.database.migrations.tests --filter "Trait=Database|Sql
 ```csharp
 var controller = new InitCmsController(
     Mock.Of<IInitCmsService>(),
-    fakeAppSettings,
     fakeDatabaseService,
-    configuration);
+    fakeAppSettings,
+    configuration,
+    Mock.Of<IThemeImportOrchestrator>());
 
 controller.ControllerContext = new ControllerContext
 {
     HttpContext = new DefaultHttpContext()
 };
 ```
+
+The constructor order is `(IInitCmsService, DatabaseService, AppSettingsService, IConfiguration, IThemeImportOrchestrator)` — `dbService` comes before `appSettings`.
 
 Use `new ConfigurationBuilder().AddInMemoryCollection().Build()` — **not** `.Build()` alone (throws `InvalidOperationException` when a service calls `configuration[key] = value`).
 
@@ -71,52 +74,59 @@ Use `new ConfigurationBuilder().AddInMemoryCollection().Build()` — **not** `.B
 
 ### `FakeAppSettingsService`
 
+`AppSettingsService`'s constructor takes only `(IConfiguration)`; pass an in-memory configuration so no file is read. `SaveSettings()` returns **`bool`** (from `AppSettingServiceBase<T>`), not `Task`. Use a primary constructor to capture the desired `InitStep` (the enum is `InitStep`, **not** `MixInitStatus`), then set it in `LoadAppSettings()` (which the base constructor calls). Set `AI` to a non-null value so the base constructor body doesn't attempt a `File.Copy`.
+
 ```csharp
-public class FakeAppSettingsService : AppSettingsService
+internal sealed class FakeAppSettingsService(InitStep initStatus = InitStep.Blank)
+    : AppSettingsService(new ConfigurationBuilder().AddInMemoryCollection().Build())
 {
-    public FakeAppSettingsService(IHttpContextAccessor accessor, IConfiguration config)
-        : base(accessor, config) { }
+    // Captured before the base constructor runs (primary-constructor field initializer).
+    private readonly InitStep _initStatus = initStatus;
 
     protected override void LoadAppSettings()
     {
         AppSettings = new AppSettingsModel
         {
-            IsInit      = false,
-            InitStatus  = MixInitStatus.Blank
+            InitStatus = _initStatus,
+            AI         = new AIConfigurations()
         };
+        RawSettings = JObject.FromObject(AppSettings);
     }
 
-    public override Task SaveSettings() => Task.CompletedTask;
+    public override bool SaveSettings() => true;
 }
 ```
 
 ### `FakeDatabaseService`
 
+`DatabaseService`'s primary constructor is **3-arg** — `(IHttpContextAccessor, IConfiguration, TenantDbResolver)` — but it also exposes a 2-arg fallback `(IHttpContextAccessor, IConfiguration)` (the design-time / Quartz path that supplies an empty `TenantDbResolver`). The fake calls the 2-arg overload. Configure **PostgreSQL** so tests reflect a realistic production database scenario. `SaveSettings()` returns **`bool`**.
+
 ```csharp
-public class FakeDatabaseService : DatabaseService
+internal sealed class FakeDatabaseService()
+    : DatabaseService(Mock.Of<IHttpContextAccessor>(), new ConfigurationBuilder().AddInMemoryCollection().Build())
 {
-    public FakeDatabaseService(IHttpContextAccessor accessor, IConfiguration config)
-        : base(accessor, config) { }
+    internal static string DefaultConnectionString => TestCredentials.PostgreSqlConnectionString;
 
     protected override void LoadAppSettings()
     {
-        AppSettings = new DatabaseConfigurations
+        RawSettings = new JObject
         {
-            DatabaseProvider = MixDatabaseProvider.SQLITE,
-            ConnectionStrings = new ConnectionStrings
+            ["DatabaseProvider"] = "PostgreSQL",
+            ["ConnectionStrings"] = new JObject
             {
-                MixCmsConnection      = "Data Source=:memory:",
-                MixAccountConnection  = "Data Source=:memory:",
-                MixAuditLogConnection = "Data Source=:memory:",
-                MixQueueLogConnection = "Data Source=:memory:",
-                MixDbConnection       = "Data Source=:memory:",
-                MixQuartzConnection   = "Data Source=:memory:"
+                [MixConstants.CONST_CMS_CONNECTION]     = DefaultConnectionString,
+                [MixConstants.CONST_ACCOUNT_CONNECTION] = DefaultConnectionString,
+                [MixConstants.CONST_MIXDB_CONNECTION]   = DefaultConnectionString,
+                [MixConstants.CONST_QUARTZ_CONNECTION]  = DefaultConnectionString
             }
         };
-        RawSettings = JObject.FromObject(AppSettings);
+        AppSettings = new DatabaseConfigurations
+        {
+            DatabaseProvider = MixDatabaseProvider.PostgreSQL
+        };
     }
 
-    public override Task SaveSettings() => Task.CompletedTask;
+    public override bool SaveSettings() => true;
 }
 ```
 
@@ -132,7 +142,7 @@ Migration tests use a **fixture + `IClassFixture<T>`** pattern. The fixture runs
 // ── Fixture ───────────────────────────────────────────────────────────────────
 public sealed class PostgresqlMyContextMigrationFixture : IDisposable
 {
-    public static string ConnectionString => TestConnections.PostgreSqlConnectionString;
+    public static string ConnectionString => TestDatabaseCredentials.PostgreSqlConnectionString;
     private readonly DatabaseService _databaseService;
 
     public PostgresqlMyContextMigrationFixture()
@@ -221,7 +231,9 @@ private void AssertTableExists(string tableName)
 
 ### Connection strings from environment variables
 
-`TestConnections` reads from `.env.tests` at the repo root (falls back to `P@ssw0rd` defaults):
+`TestDatabaseCredentials` (migration tests) and `TestCredentials` (installation tests) read these
+environment variables, falling back to `P@ssw0rd` / `localhost` defaults. Both auto-load a `.env`
+file found by walking up from the test binary to the repo root (existing shell/CI vars win):
 
 ```
 MIXCORE_TEST_MYSQL_HOST        (default: localhost)
@@ -241,7 +253,10 @@ MIXCORE_TEST_SQLSERVER_USER     (default: sa)
 MIXCORE_TEST_SQLSERVER_PASSWORD (default: P@ssw0rd)
 ```
 
-Copy `.env.tests.example` → `.env.tests` at the repo root to set local credentials.
+To set local credentials, either export these `MIXCORE_TEST_*` variables in your shell, place them
+in a `.env` file at the repo root, or copy
+`src/tests/mix.database.migrations.tests/appsettings.example.json` → `appsettings.json` and set the
+connection string there (required for the integration/migration tests per the repo README).
 
 ### Trait values for provider filtering
 

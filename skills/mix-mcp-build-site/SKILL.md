@@ -76,7 +76,7 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 - `IMixDbDataService` methods: `GetRowsAsync(tableName, filter?)` → `IReadOnlyList<MixDbRow>`, `GetRowAsync(tableName, id)` → `MixDbRow`
 - `MixDbRow` is a `readonly record struct` — use `.Get<T>("key")` or `.Get<T>("key", fallback)`, check `.IsEmpty` (not `== null`)
 - `MixDbFilter.Where("field", value).And("field", value, ">")` — pass `null` for no filter
-- **There is NO `SearchAsync` method and NO `SearchMixDbRequestModel` class.** These do not exist.
+- **Don't call `SearchAsync` on `IMixDbDataService`** — no such method exists. (`SearchMixDbRequestModel` *does* exist in `mix.shared`, but it isn't used in Razor templates — use `GetRowsAsync`/`GetRowAsync` with `MixDbFilter` instead.)
 - Full reference: `mixcore:mix-mcp-cms/references/mixdb-in-razor.md` — read BEFORE writing template code
 - Every page template that queries data MUST include its own `@using Mix.DataSource.Models` + `@inject Mix.DataSource.Interfaces.IMixDbDataService db` — these do NOT inherit from the master layout
 

@@ -333,7 +333,7 @@ Apply all substitutions before moving to step 5. The resulting HTML references v
 
 ### 5. Escape `@` characters for Razor
 
-The template is a `.cshtml` file rendered by Razor. Razor parses `@` as the start of a code expression. Every literal `@` in the HTML must be doubled to `@@`.
+The template is a `.cshtml` file rendered by Razor. The **`.cshtml` extension is what routes a template to the Razor engine** — a `.liquid` extension would render via Liquid/Fluid instead (the default for `.liquid` templates), which has no `@`-escaping requirement. Because this is Razor, it parses `@` as the start of a code expression, so every literal `@` in the HTML must be doubled to `@@`.
 
 Common sources of literal `@` in built SPAs:
 
@@ -394,15 +394,11 @@ The page is now live at `https://<host>/<seo-name>`.
 
 ## Critical gotchas (learned the hard way)
 
-### `type` is NOT NULL in `mix_page_content`
+### `type` defaults to `Article` — pass it explicitly to control page type
 
-The MCP tool definition shows `type` as optional with no default, but the underlying Postgres column is `NOT NULL`. Calling `CreatePageContent` without `type` returns:
+The `mix_page_content.type` column is `NOT NULL`, but `CreatePageContent` now defaults `type` to `MixPageType.Article` (`MixPageContentTool.cs:60` — `Type = type ?? MixPageType.Article`), so omitting it no longer throws a 23502 NOT-NULL violation.
 
-```
-23502: null value in column "type" of relation "mix_page_content" violates not-null constraint
-```
-
-**Fix:** always pass `type: "Article"` (or `"Home"`, `"ListPost"`, `"System"`). For embedded SPAs, `"Article"` is the default choice unless the user wants `/<seo-name>` as the site home.
+**Recommendation:** still pass `type` explicitly to control the page type — `"Article"`, `"Home"`, `"ListPost"`, or `"System"`. For embedded SPAs, `"Article"` is the right choice unless the user wants `/<seo-name>` as the site home.
 
 ### Git Bash mangles `--base=/path/` flags
 
@@ -561,7 +557,7 @@ Use `WriteTextFile` / `AppendToTextFile` — these are wiki files, not CMS entit
 - ❌ Never call `upload_from_url` before the Mixcore server is running — the tool fetches over HTTP; the server must be up for `dist/` files to be reachable
 - ❌ Never create an `assets/` sibling folder and copy files there — use `upload_from_url` instead; the assets folder approach is the old pattern
 - ❌ Never skip the URL substitution in step 4 — the template must reference vault `storedUrl` values, not the original `/mixcontent/<seo-name>/assets/…` paths (those only exist in `dist/`, not as deployed static files)
-- ❌ Never call `CreatePageContent` without `type` — Postgres rejects it (23502 NOT NULL)
+- ✅ Pass `type` explicitly to `CreatePageContent` to control the page type — the tool defaults it to `Article` when omitted, so it no longer throws, but be deliberate about `Home`/`Article`/`ListPost`/`System`
 - ❌ Never assign a `layoutId` to an SPA page — produces nested `<html>` elements
 - ❌ Never add `@model` or `@{ Layout = "…" }` to an SPA template
 - ❌ Never forget to escape `@` characters — Razor parses them as code expressions and the build fails at render time

@@ -45,7 +45,7 @@ All paths are relative to: the **mixcore-cloud** solution root.
 - Controllers must use `[ApiController]` and `[Route("api/v1/...")]`.
 - For domain errors, use `MixException(MixErrorStatus, message)` (not raw `Exception`).
 - Use `SearchRequestDto` + `SearchQuery<TEntity, TPrimaryKey>` for paged/filter endpoints.
-- Use `IPortalHubClientService` for SignalR notifications and `IMemoryQueueService<MessageQueueModel>` for queue events.
+- Use `IHubClientService` for SignalR notifications (forwarded to the `PortalHubClientService` singleton in `mix.lib`) and `IMemoryQueueService<MessageQueueModel>` for queue events.
 - Prefer existing base classes (`TenantControllerBase`, `ReadOnlyControllerBase`, `CrudControllerBase`, `CrudService`) over bespoke implementations.
 
 ---
@@ -70,11 +70,15 @@ if (!validation.IsValid)
 
 ---
 
-## Outbound email (EDM) is a no-op stub
+## Outbound email — `Mix.Shared.Email.IEmailService` (MixCore.Cloud.Mail)
 
-🚨 **CRITICAL RULE:** Do not assume `IMixEdmService.SendMailWithEdmTemplate(...)` actually delivers mail — it does not in the current build. The real `mix.notification/Services/MixEdmService.cs` is **excluded from compilation** (`<Compile Remove>` in `mix.notification.csproj`) and unregistered. Two `IMixEdmService` interfaces exist (`mix.notification.Interfaces` and `Mix.Account.Interfaces`); the only registration is `mix.account/Startup.cs` → `AddScoped<IMixEdmService, DefaultEdmService>()`, a no-op that logs and returns. EDM templates load by name via `GetEdmTemplate(filename)`; none ship in the repo. The Cloud.Mail `IEmailService` SMTP/Resend providers are likewise stubs.
+Email is sent through the single platform contract `Mix.Shared.Email.IEmailService` (`src/platform/common/mix.shared/Email/IEmailService.cs`), implemented by `MixCore.Cloud.Mail.Services.EmailService` and registered in `MixCore.Cloud.Mail/Startup.cs` (`AddScoped<IEmailService, EmailService>()`, alongside `IEdmTemplateRenderer → EdmTemplateRenderer` and the unkeyed `IEmailProvider → SmtpEmailProvider`). `mix.account/Startup.cs` documents this: account itself no longer registers any email service.
 
-When a feature "sends email" (register, confirm-email, password-reset, tenant-invite): store/queue the artifact and surface the limitation — never report delivery. Wiring a real provider is separate work.
+To send mail, inject `IEmailService` and call:
+- `SendAsync(int tenantId, SendEmailDto dto, ct)` — inline `dto.BodyHtml`.
+- `SendWithTemplateAsync(int tenantId, string templateName, JObject data, SendEmailDto dto, ct)` — named template with `[[Token]]` replacement from `data`; falls back to `dto.BodyHtml` when the template resolves empty.
+
+Note the template store is not yet populated: `GetTemplateAsync` returns empty until one is implemented, so `SendWithTemplateAsync` falls back to the inline body. The SMTP provider does the actual delivery — there is no `IMixEdmService` / `mix.notification` / `DefaultEdmService`; those types were removed.
 
 ---
 
@@ -241,7 +245,6 @@ protected override async Task SaveEntityRelationshipAsync(
 
 | Service | Package | Use for |
 |---|---|---|
-| `HeartCrudService` | mix.heart | Basic CRUD via mediator (no tenant/identity) |
 | `CrudService` | mix.lib | Full CRUD with tenant stamping, cache, SignalR |
 | `EntityRepository` | mix.heart | Direct DB ops inside a UnitOfWork |
 

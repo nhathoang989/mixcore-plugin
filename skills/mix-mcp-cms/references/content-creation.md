@@ -60,8 +60,9 @@ Rules:
 ListModuleContents(pageIndex: 0, pageSize: 50)
 → returns actual systemName values
 
-Then in template: Model.GetModule("exact-system-name")  ✅
-Never: Model.GetModule("Hero Banner")                   ❌ display name, won't work
+Then in template: Model.Modules?.FirstOrDefault(m => m.SystemName == "exact-system-name")  ✅
+Never filter on the display name ("Hero Banner")                                          ❌ use SystemName, not the title
+(there is NO Model.GetModule(...) method — PageContentViewModel exposes only List<ModuleContentViewModel>? Modules)
 ```
 
 ---

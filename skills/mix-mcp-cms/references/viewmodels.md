@@ -60,7 +60,7 @@ Widget and Form templates use `@model dynamic`.
 |---|---|---|
 | `Model.Id` | `int` | Module ID |
 | `Model.Title` | `string` | Module title |
-| `Model.SystemName` | `string` | Unique slug — use the exact value in `Model.GetModule()` |
+| `Model.SystemName` | `string` | Unique slug — filter `page.Modules` by this value (e.g. `Modules?.FirstOrDefault(m => m.SystemName == "x")`); there is no `Model.GetModule()` |
 | `Model.Content` | `string` | **HTML** — `@Html.Raw(Model.Content)` |
 | `Model.Excerpt` | `string?` | Short HTML — `@Html.Raw(Model.Excerpt)` |
 | `Model.SeoName` | `string` | URL slug |
@@ -68,7 +68,7 @@ Widget and Form templates use `@model dynamic`.
 | `Model.ClassName` | `string` | Optional CSS wrapper class |
 | `Model.PageSize` | `int?` | Optional paging hint |
 | `Model.Type` | `MixModuleType` | `"Content"`, `"Data"`, `"ListPost"` |
-| `Model.Template` | `TemplateViewModel` | Use `"../" + Model.Template.FilePath` or `Model.Template.GetFilePath(themeName)` in `PartialAsync` |
+| `Model.TemplateFilePath` | `string?` | Leading-slash absolute path (e.g. `/Templates/.../X.cshtml`) — render with `<partial name="@Model.TemplateFilePath" model="Model" />`. There is no `Model.Template` nav property on the rendering `ModuleContentViewModel` |
 | `Model.Posts` | `List<PostContentViewModel>` | Associated posts |
 | `Model.DetailUrl` | `string` | Computed `/Module/{Id}/{SeoName}` — use for "read more" links instead of building URLs by hand |
 

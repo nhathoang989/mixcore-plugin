@@ -6,23 +6,23 @@ allowed-tools:
   - Bash
 ---
 
-You are helping with .NET CLI operations in the **mixcore-cloud** solution (`src/mixcore.sln`).
+You are helping with .NET CLI operations in the **mixcore-cloud** solution (`src/MixCore.Cloud.sln`).
 All commands run from the mixcore-cloud repo root.
 
 ## Build
 
 ```bash
-dotnet build src/mixcore.sln                          # full solution
-dotnet build src/mixcore.sln -c Release               # release config
+dotnet build src/MixCore.Cloud.sln                    # full solution
+dotnet build src/MixCore.Cloud.sln -c Release         # release config
 dotnet build src/<path/to/project.csproj>             # single project
-dotnet build src/mixcore.sln --no-restore             # skip restore (faster after first build)
+dotnet build src/MixCore.Cloud.sln --no-restore       # skip restore (faster after first build)
 ```
 
 ## Run
 
 ```bash
-dotnet run --project src/apps/mixcore                 # main web app
-dotnet run --project src/mixcore.host                 # all services via .NET Aspire
+dotnet run --project src/apps/MixCore.Cloud.Web       # main web app
+dotnet run --project src/host/mixcore.host            # all services via .NET Aspire (AppHost.cs)
 docker compose up --build                            # Docker Compose (SQLite by default)
 docker compose --profile postgres up --build         # Docker Compose (PostgreSQL)
 ```
@@ -30,7 +30,7 @@ docker compose --profile postgres up --build         # Docker Compose (PostgreSQ
 ## Test
 
 ```bash
-dotnet test src/mixcore.sln                           # all tests (sequential — required)
+dotnet test src/MixCore.Cloud.sln                     # all tests (sequential — required)
 dotnet test src/tests/mix.database.migrations.tests   # migration tests only
 dotnet test src/tests/mix.installation.tests          # installation tests only
 
@@ -53,25 +53,26 @@ Always run from the **repo root** (not from inside `src/`):
 
 ```bash
 # Add a migration
-dotnet ef --startup-project src/apps/mixcore \
+dotnet ef --startup-project src/apps/MixCore.Cloud.Web \
           --project src/platform/mix.database \
           migrations add <MigrationName> \
           --context <ContextName> \
           --output-dir Migrations/<Path>
 
 # Apply migrations
-dotnet ef --startup-project src/apps/mixcore \
+dotnet ef --startup-project src/apps/MixCore.Cloud.Web \
           --project src/platform/mix.database \
           database update --context <ContextName>
 
 # List pending migrations
-dotnet ef --startup-project src/apps/mixcore \
+dotnet ef --startup-project src/apps/MixCore.Cloud.Web \
           --project src/platform/mix.database \
           migrations list --context <ContextName>
 ```
 
-Available contexts: `MixCmsContext`, `MixCmsAccountContext`, `AuditLogDbContext`, `QueueLogDbContext`.
-Each has provider variants (e.g. `SqliteMixCmsContext`, `MySqlMixCmsContext`, etc.).
+Available contexts (non-exhaustive): `MixCmsContext`, `MixCmsAccountContext`, `AuditLogDbContext`, `QueueLogDbContext`.
+Other migrated contexts exist (e.g. Gateway, MixDb, MixQueueDb, Quartz, Settings) — see the subfolders under `src/platform/mix.database/Migrations/` for the full list.
+Each has provider variants: `SqliteMixCmsContext`, `PostgresqlMixCmsContext`, `MySqlMixCmsContext`, `SqlServerMixCmsContext` (and the equivalents for the other contexts).
 
 > EF Core 10 treats `PendingModelChangesWarning` as an error. Always add a migration when changing entity models.
 
@@ -81,14 +82,14 @@ Each has provider variants (e.g. `SqliteMixCmsContext`, `MySqlMixCmsContext`, et
 dotnet add src/<project.csproj> package <PackageName>
 dotnet add src/<project.csproj> package <PackageName> --version <version>
 dotnet remove src/<project.csproj> package <PackageName>
-dotnet restore src/mixcore.sln
+dotnet restore src/MixCore.Cloud.sln
 dotnet list src/<project.csproj> package --outdated
 ```
 
 ## Watch (hot reload)
 
 ```bash
-dotnet watch --project src/apps/mixcore run
+dotnet watch --project src/apps/MixCore.Cloud.Web run
 dotnet watch --project src/tests/mix.database.migrations.tests test
 ```
 
@@ -105,10 +106,10 @@ dotnet watch --project src/tests/mix.database.migrations.tests test
 ## Common task patterns
 
 When the user asks to:
-- **"build"** → `dotnet build src/mixcore.sln`
-- **"run"** → `dotnet run --project src/apps/mixcore`
-- **"run tests" / "test"** → `dotnet test src/mixcore.sln`
+- **"build"** → `dotnet build src/MixCore.Cloud.sln`
+- **"run"** → `dotnet run --project src/apps/MixCore.Cloud.Web`
+- **"run tests" / "test"** → `dotnet test src/MixCore.Cloud.sln`
 - **"run a single test"** → ask for the class/method name, then use `--filter "FullyQualifiedName~..."`
 - **"add a migration"** → ask for migration name and context, use the `dotnet ef` command above
 - **"add a NuGet package"** → ask which `.csproj` and the package name
-- **"restore packages"** → `dotnet restore src/mixcore.sln`
+- **"restore packages"** → `dotnet restore src/MixCore.Cloud.sln`

@@ -77,7 +77,7 @@ ToolSearch  →  query: "playwright browser navigate snapshot click"
 
 That surfaces `mcp__plugin_playwright_playwright__browser_navigate`, `browser_snapshot`, `browser_click`, `browser_take_screenshot`, `browser_fill_form`, `browser_console_messages`, etc. Then:
 
-1. Make sure the app is running — `dotnet run --project src/apps/MixCore.Cloud.Web` (HTTP `:5247` → `http://localhost:5247`). Route prefixes: `/p` portal · `/a` admin · `/` landing.
+1. Make sure the app is running — `dotnet run --project src/apps/MixCore.Cloud.Web` (HTTP `:5000` → `http://localhost:5000`; HTTPS `:5001`). Route prefixes: `/p` portal · `/a` admin · `/` landing.
 2. `browser_navigate` to the affected route, `browser_snapshot` to read the accessibility tree, interact (`browser_click` / `browser_fill_form`), and check `browser_console_messages` for errors.
 3. 🚨 **Screenshots must be saved under `.playwright*/` (gitignored)** — never under `wwwroot/` or any committed directory (CLAUDE.md rule).
 
@@ -229,11 +229,13 @@ Invoke `mixcore:docs-sync` skill to propagate any new facts:
 src/
 ├── apps/MixCore.Cloud.Web/        # Deployable ASP.NET Core host
 ├── host/MixCore.Cloud.Host/       # .NET Aspire orchestrator (local dev only)
-├── cloud/                         # 15 cloud pillar modules (auto-discovered)
+├── cloud/                         # 16 cloud pillar modules (auto-discovered)
 │   ├── Mixcore.Cloud.Account/     # Tenant registration, provisioning
+│   ├── MixCore.Cloud.Analytics/   # Privacy-first analytics engine
 │   ├── MixCore.Cloud.Auth/        # OIDC SSO, MFA, API keys, SCIM
 │   ├── MixCore.Cloud.Database/    # Per-tenant SQLite provisioning
 │   ├── MixCore.Cloud.Gateway/     # YARP dynamic routing
+│   ├── MixCore.Cloud.Scheduler/   # Recurring cron jobs
 │   └── ... (Billing, Edge, Flows, Mail, Mind, Monitor, Run, Signal, Vault, Vector)
 ├── modules/                       # Feature modules (auto-discovered)
 │   ├── account/                   # mix.account, mix.auth
@@ -245,7 +247,7 @@ src/
 ├── platform/
 │   ├── mix.lib/                   # Base controllers, extensions
 │   ├── mix.database/              # EF Core DbContexts, entities, migrations
-│   ├── common/mix.heart/          # UoW, generic repos, exceptions
+│   ├── common/mix-heart/          # UoW, generic repos, exceptions
 │   ├── common/mix.shared/         # DTOs, middleware, MixAssemblyFinder
 │   └── common/mix.ui.shared/      # Blazor shared components
 └── tests/                         # One xUnit project per module
