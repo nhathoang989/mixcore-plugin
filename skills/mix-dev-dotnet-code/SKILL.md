@@ -93,6 +93,20 @@ When adding or editing an agent (`TaskAgent`, `PlanningService`, `ChatAgent`, �
 
 ---
 
+## mix.ai plan lifecycle — resume/retry/continue (PR #249)
+
+`AgentLoopService` is a native LLM tool-calling loop — the model creates/ticks `AIPlan`/`AIPlanStep` rows via the local plan tools backed by `PlanToolService`. Nothing "executes step N" deterministically. When touching plan re-execution, respect these invariants:
+
+- **Re-attach, don't duplicate.** `POST /api/v1/ai/plans/{id}/resume|retry|continue` enqueue a `mix-ai-plan-resume` message (202); `AIPlanQueueSubscriber` re-runs the loop with `AgentRequest.ExistingPlanId` set so `PlanToolService.BindToExisting` loads the existing plan. `ReRun` (synchronous) is the old duplicate-as-new-plan path — leave it alone.
+- **Verb = reset scope only:** `retry` → `ResetScope.FailedPlusNonCompleted`; `resume`/`continue` → `ResetScope.NonCompleted` (Failed steps stay Failed). Completed steps + `ResultJson` are NEVER reset. The API is deliberately lenient (any verb on any non-Completed, non-running plan); the UI gates stricter.
+- 🚨 **One DI scope, one loop per plan.** `PlanToolService` and `AgentLoopService` are both scoped, and the loop is constructed with the scope's `PlanToolService` — resolve both from the SAME scope and call `BindToExisting` + `ResetForResumeAsync` BEFORE `ProcessAsync` (the loop's re-bind is idempotent). The write gate is per-instance, so two loops on one plan from different scopes race the same rows — that's why the controller 409s on `InProgress`/`WaitingForApproval`.
+- **Hub streaming is free.** The loop reroutes `OnEvent` to the `ai-plan-{id}` SignalR group itself — a background caller passes `OnEvent: null` and the plan-detail page still streams live. Don't inject `IHubContext` into queue subscribers for this.
+- **No orphaned plans.** `FinalizeAsync` (loop `finally`) drives every exit terminal; the subscriber additionally marks a still-`InProgress` plan `Failed` when the loop fails before its try (`MarkFailedIfStuckAsync`). Queue runs are non-interactive (`AwaitDecision` null) — approval-gated tools won't run and `clarify` dead-ends, so such plans finalize `Incomplete`, never hang.
+- **`WaitingForApproval` is active, not orphaned** — a live loop is suspended on it. Never offer Resume on it directly; the escape hatch is Cancel → Resume. In cloud-ui, `IsActive` includes `WaitingForApproval` so Cancel stays visible.
+- Session continuity has no `AIPlan.SessionId` column — the subscriber recovers it best-effort from the newest `AITranscript` by `PlanId`; `BuildResumeContextAsync` injects the authoritative plan state regardless.
+
+---
+
 ## Data and JSON conventions
 
 - Keep EF Core mappings and entities compatible with existing snake_case DB naming conventions.
