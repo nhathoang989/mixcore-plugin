@@ -241,22 +241,38 @@ CSS for the AI bubble (`.mix-b`) belongs in the template content field — imple
 
 ## Auth failure detection
 
-The hub endpoint is `[Authorize]`. With JWT Bearer auth, an invalid or missing token returns a proper HTTP 401 response — SignalR's negotiate request fails with `statusCode === 401`. **Only show the login gate on a confirmed 401.** All other connection failures (network errors, proxy errors, parse errors, HTML redirects from misconfigured middleware) are NOT auth failures — show a generic error instead so the user knows something else is wrong.
+**Do not force login up front — connect first, reveal the gate only when the connection fails.** Always attempt `hub.start()` when the drawer opens, even with no token: a logged-out visitor sees the chat UI immediately and the sign-in gate appears *only* if the connection is actually rejected. The hub is `[Authorize]` (Bearer), so an unauthenticated `negotiate` fails with `statusCode === 401` — the clean, primary auth signal. Some hosts instead redirect the anonymous `negotiate` to an HTML login page (302 → `/p/login`), so `hub.start()` throws a JSON parse error (`Unexpected token '<', "<!DOCTYPE "…`) rather than a 401 — treat that as an auth failure too, because the redirect *is* the auth challenge. Every other failure (network drop, proxy error, server 500) is **not** auth — show a generic error.
 
 ```js
 function handleConnectError(e) {
-    var isAuthFail = (e && e.statusCode === 401);
+    var m = (e && e.message) || String(e);
+    var isAuthFail = (e && e.statusCode === 401)        // primary: Bearer hub returns a clean 401
+        || m.indexOf('401') !== -1
+        // a host that redirects the anonymous negotiate to an HTML login page (cookie-auth):
+        || m.indexOf('DOCTYPE') !== -1
+        || m.indexOf('not valid JSON') !== -1
+        || m.indexOf('Unexpected token') !== -1;
     if (isAuthFail) {
         showGate();   // reveal the full-cover sign-in overlay (see chat-widget.md)
     } else {
-        showError('Could not connect to AI.');
+        showError('Could not connect to AI.');   // network / 500 / proxy — not an auth problem
     }
 }
 ```
 
-**Why only 401?** Other error signatures (HTML bodies, JSON parse failures, "Unexpected token") can be caused by reverse-proxy error pages, misconfigured gateways, or server 500s — none of which are auth problems. Showing the login form for a network blip or a server crash confuses the user and hides the real issue.
+**Why connect first?** Gating before any connection attempt meets a logged-out visitor with a login wall on pages they could otherwise browse. Attempting the connection and gating only on a real auth failure keeps the widget unobtrusive, while the two auth signals above (a 401, or an HTML-login redirect) reliably surface the gate when sign-in is genuinely required. A true network blip or server 500 shows a generic error instead, so it is never mistaken for "please sign in".
 
 **Present sign-in as a full-cover gate, not an inline bubble.** When auth fails, reveal a `position:absolute; inset:0` overlay inside the drawer (its own bar + close, centered login form) that covers the messages list AND the input row — so a logged-out visitor can't type into a dead chat. Hide it on a successful `hub.start()` and after login. Markup, CSS, and the `showGate`/`hideGate`/`wireGate` wiring are in [references/chat-widget.md](references/chat-widget.md) § Auth failure → full-cover sign-in gate.
+
+**Connect whenever the drawer opens — never gate before trying.** Don't check for a token first; just connect. `initHub()` wires the handlers and calls `hub.start()`, routing any failure through `handleConnectError` (above), which is what reveals the gate. A logged-out visitor therefore sees the live chat UI, and the sign-in overlay only appears once the doomed `negotiate` comes back 401 (or an HTML-login redirect). One unavoidable cost: a logged-out connect attempt logs one expected SignalR error to the console — that is fine; it is the trigger for the gate, not a bug to suppress.
+
+```js
+function connect() {
+    if (!hub) initHub();   // initHub wires handlers + hub.start().catch(handleConnectError)
+    else hub.start().then(function () { started = true; hideGate(); }).catch(handleConnectError);
+}
+// open drawer → connect(); after a successful login → set token, then connect()
+```
 
 ---
 
@@ -326,6 +342,8 @@ Include in a master layout before `@await RenderSectionAsync("Scripts", false)`:
 ## Verify (run after every deploy)
 
 After deploying the widget template and the page that includes it, verify with Playwright before reporting done. A passing typecheck or build is not evidence the hub wired up.
+
+> **Verify against the live MCP-server origin, not `localhost`.** The MCP tools mutate the deployment behind the configured Mixcore server, so that is the only place your change is live. Derive the base URL from the `mixcore` entry in `.mcp.json` (e.g. `https://mixcore.cloud/mcp` → origin `https://mixcore.cloud`), then `browser_navigate` to `{origin}/{page}`. `http://localhost:5000` may be a different instance with none of your edits — a green screenshot there proves nothing about the live site.
 
 ### Minimum verification procedure
 
@@ -409,7 +427,8 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] Token read from `localStorage['mix_access_token']`
 - [ ] `hub.invoke('AskAI', message, sessionId, null, null)` — provider and model default to null
 - [ ] `marked.js` CDN added for markdown rendering — `rawText` accumulator used (not `bubble.textContent`)
-- [ ] Auth failure detection checks **only** `statusCode === 401` — other errors (HTML, parse failures, network issues) show a generic error, not the login gate
+- [ ] `connect()` always attempts `hub.start()` — **no gate-first / no token pre-check**; the login gate is shown by `handleConnectError`, only when the connection fails
+- [ ] Auth-failure detection gates on a real auth signal — `statusCode === 401` (primary) **or** an HTML-login redirect (`DOCTYPE` / parse error); network / 500 / proxy errors show a generic error, not the login gate
 - [ ] Sign-in renders as a full-cover gate overlaying the whole drawer (covers messages + input), hidden on successful connect/login — not an inline bubble
 - [ ] Suggestion button click handlers call `setSend()` explicitly after setting `input.value`
 - [ ] `window.beforeunload` → `hub.stop()` to clean up the connection
@@ -427,7 +446,8 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 
 - Never put CSS or JS in the `styles` or `scripts` parameters of `CreateTemplate` for widget templates
 - Never use `bubble.textContent` to recover streamed text — use a separate `rawText` accumulator
-- Never check for HTML signatures or JSON parse errors to detect auth failure — only `statusCode === 401` means auth is missing. Everything else is a different kind of failure and should show a generic error, not the login gate.
+- Never force login before connecting (no gate-first / token pre-check) — always attempt `hub.start()` and let `handleConnectError` reveal the gate only when the connection fails
+- Never treat a network error or server 500 as auth — only a `statusCode === 401` or an HTML-login redirect (`DOCTYPE` / JSON parse error from a redirected `negotiate`) means sign-in is required; everything else shows a generic error, not the login gate
 - Never look for `res.data.accessToken` in the login response — the field is `res.result.AccessToken`
 - Never render the sign-in form as an inline chat bubble in the message list — use a full-cover gate (`position:absolute; inset:0`) that overlays the whole drawer, so the input row is blocked while logged out
 - Never set `input.value` programmatically without calling `setSend()` — the `input` event does not fire

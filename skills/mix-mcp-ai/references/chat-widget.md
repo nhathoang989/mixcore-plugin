@@ -423,7 +423,10 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
             finalizeMessage(fallback);
         });
         hub.on('ReceiveError',    function (err) { showError((err && (err.detail || err.message)) || 'Error'); });
-        hub.start().catch(function (e) { console.error('[mixcore:mix-mcp-ai] hub start failed', e); });
+        // Connect first, gate on failure — no token pre-check. handleConnectError reveals the
+        // sign-in gate only on a real auth failure (401, or an HTML-login redirect). See
+        // § Auth failure → full-cover sign-in gate for the detection body + showGate().
+        hub.start().then(function () { hideGate(); }).catch(handleConnectError);
     }
 
     window.addEventListener('beforeunload', function () { if (hub) hub.stop(); });
@@ -552,27 +555,28 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
 ## Auth failure → full-cover sign-in gate
 
-The `/hubs/site-knowledge` hub is mapped with `.RequireAuthorization()` using JWT Bearer auth (`mix.ai/Startup.cs`), so an unauthenticated `negotiate` returns a proper **HTTP 401** — `e.statusCode === 401` is the documented, reliable signal (see SKILL.md). The DOCTYPE/JSON-parse checks below are **optional belt-and-suspenders fallbacks** for misconfigured deployments where a reverse-proxy or cookie-auth middleware redirects `/hubs/site-knowledge/negotiate` to an HTML login page instead of returning 401 JSON (SignalR then sees `<!DOCTYPE html>` and throws a `SyntaxError`). On a standard mixcore-cloud setup you can rely on `statusCode === 401` alone.
+**Connect first, gate on failure — never force login up front.** Open the drawer and attempt `hub.start()` even with no token; the gate is revealed by the connection *failing*, not by a pre-check (see SKILL.md § Auth failure detection). The `/hubs/site-knowledge` hub is mapped with `.RequireAuthorization()` using JWT Bearer auth (`mix.ai/Startup.cs`), so an unauthenticated `negotiate` returns a proper **HTTP 401** — `e.statusCode === 401` is the primary, reliable signal. The DOCTYPE/JSON-parse checks below are the **secondary auth signal**: some hosts redirect `/hubs/site-knowledge/negotiate` to an HTML login page (302 → `/p/login`) instead of returning 401 JSON, so SignalR sees `<!DOCTYPE html>` and throws a `SyntaxError`. Because we no longer gate before connecting, keep those checks so a logged-out visitor on such a host still gets the gate. On a standard mixcore-cloud setup `statusCode === 401` alone is enough.
 
 **Present the login as a full-cover gate that overlays the entire widget**, not as a message appended into the chat list. The gate is an `position:absolute; inset:0` panel inside the drawer with its own title bar + close button and a centered login form, shown when the hub fails auth and hidden on a successful sign-in. This blocks the messages list AND the input row so an unauthenticated user can't type into a dead chat, and it reads as a deliberate "sign in to continue" screen rather than a stray bubble. (The drawer is `position:fixed`, so it is the containing block for the `inset:0` gate.)
 
 ### Detection
 
 ```js
-hub.start().catch(function(e) {
+// initHub() calls hub.start().catch(handleConnectError) — connect first, gate only on failure.
+function handleConnectError(e) {
     var m = (e && e.message) || String(e);
     var isAuthFail = (e && e.statusCode === 401)   // primary, reliable signal (hub is Bearer/.RequireAuthorization)
         || m.indexOf('401') !== -1
-        // optional fallbacks — only fire on misconfigured deployments that redirect negotiate to an HTML login page:
+        // secondary auth signal — a host that redirects the anonymous negotiate to an HTML login page:
         || m.indexOf('DOCTYPE') !== -1
         || m.indexOf('not valid JSON') !== -1
         || m.indexOf('Unexpected token') !== -1;
     if (isAuthFail) {
         showGate();          // reveal the full-cover sign-in overlay
     } else {
-        showError('Could not connect to AI.');
+        showError('Could not connect to AI.');   // network / 500 / proxy — not an auth problem
     }
-});
+}
 ```
 
 Also call `showGate()` from `sendMessage()` when the hub is not connected, so a click "send" on a logged-out widget surfaces the gate instead of a silent failure.
@@ -676,7 +680,7 @@ Call `hideGate()` from the hub's successful `.start()` too, so a valid token nev
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Hub connect fails with `SyntaxError: Unexpected token '<'` or `"<!DOCTYPE"... is not valid JSON` | **Misconfigured deployment only** — a reverse-proxy or cookie-auth middleware redirected `negotiate` to an HTML login page instead of returning 401 JSON | Belt-and-suspenders fallback: also check `m.indexOf('DOCTYPE')`, `m.indexOf('not valid JSON')`, `m.indexOf('Unexpected token')` in addition to `statusCode === 401` |
+| Logged-out visitor connects but the sign-in gate never appears | A host that redirects the anonymous `negotiate` to an HTML login page (302 → `/p/login`) makes `hub.start()` throw a `SyntaxError` instead of a clean 401, so a 401-only check misses it | In `handleConnectError`, treat the redirect as a secondary auth signal: gate on `m.indexOf('DOCTYPE')`, `m.indexOf('not valid JSON')`, `m.indexOf('Unexpected token')` in addition to `statusCode === 401` |
 | Login succeeds but widget shows "Invalid response from server" | Wrong field path — `ApiResponseModel<T>` uses `Result` not `data`; `TokenResponseModel.AccessToken` is PascalCase | Read: `var r = res.result \|\| res.Result; var tok = r.accessToken \|\| r.AccessToken;` |
 | Hub connect fails with 401 (the expected case) | Token not in `localStorage['mix_access_token']` or expired — the hub is `.RequireAuthorization()` (Bearer), so it returns proper 401 JSON | Verify login flow sets this key; inspect Network → WS handshake headers. Detect with `statusCode === 401` and show the login gate |
 | Suggestion button click populates input but send button stays disabled | Programmatic `input.value =` does not fire the `input` event | Call `setSend()` explicitly after setting `input.value` |

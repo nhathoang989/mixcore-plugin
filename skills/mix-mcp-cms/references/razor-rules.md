@@ -124,6 +124,29 @@ Each `@RenderSection` name must appear **exactly once**. Duplicating any section
 
 **Therefore: put page/module CSS and JS in the template's `Styles`/`Scripts` fields (or inline in the body) — NOT in `@section Styles { … }` / `@section Scripts { … }` blocks, which only work in the host/master layer.**
 
+### 5a. Active navigation state (shared master, no per-page slug)
+
+The master layout renders for every page and has **no `@model`**, so it cannot know the current page server-side. Set the active nav link **client-side**: match `window.location.pathname` against each link's `href`, then add an `.active` class (+ `aria-current="page"`). Match the exact path OR a section prefix (so `/docs` stays active on `/docs/api`), and guard `'/'` so the home link doesn't match everything.
+
+```html
+<script>
+(function () {
+    var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+    document.querySelectorAll('.nav-links a, #mobile-menu a').forEach(function (a) {
+        var href = a.getAttribute('href');
+        if (!href || href.charAt(0) !== '/' || href === '/p/login') return;
+        var clean = href.replace(/\/+$/, '') || '/';
+        if (clean === path || (clean !== '/' && path.indexOf(clean + '/') === 0)) {
+            a.classList.add('active');
+            a.setAttribute('aria-current', 'page');
+        }
+    });
+})();
+</script>
+```
+
+Style `.active` like the link's hover state. Do this in JS — the master has no page context, so a server-side `Model.SeoName` check isn't available at the master layer.
+
 ---
 
 ## 6. MixDB value rendering — use `row.Get<T>()` inside `@(...)`
