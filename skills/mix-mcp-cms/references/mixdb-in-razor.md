@@ -84,6 +84,45 @@ That is the **only** inject needed. No factory, no `DatabaseService`, no `Search
 
 Returns `MixDbRow.Empty` (not null) when not found — check `row.IsEmpty`.
 
+---
+
+## Data-detail template contract
+
+A `folderType="Data"` template attached to a table (via `templateId`) renders the **record-detail page** at `/db/{tableName}/{id:int}` (integer `id`, served by `FrontendController.DataDetail`). This render path is different from the list/embed queries above — **do not** `@inject IMixDbDataService` and re-query for the primary row, and **do not** declare a `Layout`:
+
+🚨 **The controller already loaded the row and hands it in as the template's `@model`, and assigns the master layout for you.** The template is rendered as a **main view** (not a partial), so its `@section Seo` reaches the master.
+
+```cshtml
+@model Mix.DataSource.Models.MixDbRow
+@{
+    // ✅ Read the row straight from the model — the controller already loaded it.
+    //    NO Layout directive (the controller assigns the master via ViewData["MixLayout"]).
+    //    NO @inject + re-query for THIS row. (Inject only to load *related* rows.)
+    var name    = Model.Get<string>("name") ?? "Untitled";
+    var tagline = Model.Get<string>("tagline") ?? "";
+    ViewData["Title"] = name;          // page <title> via the master
+}
+@section Seo {                         // ✅ works — this is a MAIN view, not a partial
+    <title>@name</title>
+    <meta name="description" content="@tagline" />
+    <meta property="og:title" content="@name" />
+}
+<article>
+    <h1>@name</h1>
+    <p>@tagline</p>
+</article>
+```
+
+**Auto-detect the SEO fields at generation time:** inspect the table schema (`GetMixDbBySystemName(includeColumns: true)`) and map the row's columns into `@section Seo` — title from `seoTitle` → `title` → `name`/`heading`; description from `seoDescription` → `description` → `excerpt`/`tagline`; image from `seoImage` → `image` → `thumbnail`/`cover`. Only reference columns that actually exist.
+
+**Contract checklist for a Data-detail template:**
+- `@model Mix.DataSource.Models.MixDbRow` — never `@model dynamic`, never a page/post ViewModel.
+- **No `Layout`** directive — the controller assigns it; declaring one re-resolves relative to the `Data/` folder and 404s.
+- **No re-query** of the primary row — read `Model.Get<…>`. `@inject IMixDbDataService db` only for *related* rows.
+- `@section Seo { … }` with the auto-detected fields, plus `ViewData["Title"]` for the master `<title>`.
+- File name in **Title Case** (e.g. `FeatureDetail.cshtml`, not `feature-detail.cshtml`).
+- The master it renders under must be model-agnostic (reads `ViewData["Title"]`, never `Model.*`) — see [razor-rules.md §master rules](razor-rules.md).
+
 ### `MixDbRow` is a struct — no `?.` null-conditional access
 
 ```cshtml

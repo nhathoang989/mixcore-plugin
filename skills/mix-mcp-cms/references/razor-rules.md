@@ -29,9 +29,9 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 | Post template | `"Posts"` | `@model Mix.Rendering.ViewModels.PostContentViewModel` |
 | Form template | `"Forms"` | `@model dynamic` — forms write TO MixDb, no typed ViewModel. Must include `class="frm-mixdb-ajax"` and `data-mixdb-table="<site_name>_tablename"` on the `<form>` tag |
 | Widget template | `"Widgets"` | `@model dynamic` (default) or `@model Mix.Rendering.ViewModels.ModuleContentViewModel` only when the parent explicitly passes a module model |
-| Data template | `"Data"` | `@model dynamic` — reads FROM MixDb via `IMixDbDataService`. Only renders columns that exist in the actual table schema. See [mixdb-in-razor.md](mixdb-in-razor.md) for query patterns. |
+| Data template (record-detail, `/db/{table}/{id}`) | `"Data"` | `@model Mix.DataSource.Models.MixDbRow` — the controller hands in the **already-loaded row** as the model and renders the template as a **main view** (so its `@section Seo` reaches the master). **No `Layout` directive** (the controller assigns it), **no re-query** — read columns from `Model.Get<…>`. Only `@inject IMixDbDataService db` to load *related* rows. Only render columns that exist in the schema. See [the Data-detail contract](mixdb-in-razor.md#data-detail-template-contract). |
 
-**Never** use `@model PageContentViewModel` in a Form template. **Never** include `@{ Layout = "..." }` inside page/module templates — layout is assigned via `layoutId` in `CreatePageContent`.
+**Never** use `@model PageContentViewModel` in a Form template. **Never** set the layout inside a page/module template — no `@{ Layout = "..." }` and no `@{ Layout = null; }`. The layout is a property of the *page content*, assigned via the `layoutId` parameter of `CreatePageContent` (a master template id, or `null` for a standalone full-document page); a `Layout` directive in the template body is ignored.
 
 ---
 
@@ -100,19 +100,21 @@ Two ways to name a partial:
 <html>
 <head>
     <link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />  @* brand favicon — generate an SVG (see below) *@
-    @RenderSection("Seo", false)          @* required — declare in every master; pages fill optionally *@
+    @RenderSection("Seo", false)          @* MANDATORY — declare once; false only lets a child page skip it, not the master *@
     <!--[STYLES]-->                       @* Mix CMS styles injection point — keep this comment *@
-    @RenderSection("Styles", false)       @* exactly 1 time *@
+    @RenderSection("Styles", false)       @* MANDATORY — declare once; false only lets a child page skip it, not the master *@
 </head>
 <body>
     @RenderBody()                         @* exactly 1 time *@
     <script src="~/js/scripts.js"></script>
-    @RenderSection("Scripts", false)      @* exactly 1 time *@
+    @RenderSection("Scripts", false)      @* MANDATORY — declare once; false only lets a child page skip it, not the master *@
 </body>
 </html>
 ```
 
 Each `@RenderSection` name must appear **exactly once**. Duplicating any section name causes `InvalidOperationException: The section 'X' has already been rendered.`
+
+🚨 **`false` ≠ optional.** The `false` arg only tells Razor not to throw when a *child page* omits the section — the master MUST still declare `Seo`, `Styles`, and `Scripts` (each exactly once). Never describe these three as "optional sections"; `Schema` is the only optional one.
 
 **Required vs optional sections (these apply to the MASTER ↔ host-view layer only):**
 | Section | Master must declare | Provided by |
@@ -121,13 +123,39 @@ Each `@RenderSection` name must appear **exactly once**. Duplicating any section
 | `Styles` | ✅ Required in every master | The host view, from the template's `Styles` field |
 | `Scripts` | ✅ Required in every master | The host view, from the template's `Scripts` field |
 
+🚨 **CRITICAL RULE: never read `Model.*` in a master — not even dynamically.** A master has no `@model`, but `Model` is still available as `dynamic` at the layout layer, so `Model.SeoTitle` **compiles and only blows up at runtime**. The model the layout receives is whatever the host view rendered — `PageContentViewModel` for a page, `PostContentViewModel` for a post, or **`DataDetailViewModel` for a MixDB record-detail page (`/db/{tableName}/{id}`), which has NO `SeoTitle`/`Title`/`SeoDescription`**. Reaching into the model couples the master to one shape and throws `RuntimeBinderException: 'DataDetailViewModel' does not contain a definition for 'SeoTitle'` for the others. Get the title/SEO through model-agnostic channels every host view supplies:
+
+```razor
+@* ❌ WRONG — throws at runtime on a Data-detail page (and any non-page model) *@
+@{ var pageTitle = !string.IsNullOrEmpty(Model.SeoTitle) ? Model.SeoTitle : Model.Title; }
+
+@* ✅ CORRECT — ViewData["Title"] is set by every host view; SEO <meta> arrive via @RenderSection("Seo") *@
+@{ var pageTitle = ViewData["Title"] as string ?? "Site Name"; }
+<head>
+    <title>@pageTitle</title>
+    @RenderSection("Seo", false)   @* per-page meta/OG/canonical injected by the host view *@
+</head>
+```
+
 **Favicon (generate a suitable one — do not hard-code a generic globe):** author a 32×32 `viewBox` SVG in the site's brand colors (a monogram or simple glyph), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", content: "<svg …>")` — TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it serves at `/mixcontent/documents/generated-data/<slug>-favicon.svg` — then reference it in `<head>` as shown above. Example: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. A full `https://…` public URL in `href` is an acceptable alternative.
 
 🚨 **Pages/Modules templates are rendered as nested `<partial>` by the host view** (`PublicPage.cshtml` does `<partial name="@Model.TemplateFilePath" model="@Model" />`). `@section` blocks declared **inside a partial are silently dropped** — Razor only honors `@section` in a view that participates in the layout (the host view / master). The host view itself supplies `@section Seo`, `@section Styles`, and `@section Scripts`, pulling Styles/Scripts from the template's `Styles`/`Scripts` fields.
 
-**Therefore: put page/module CSS and JS in the template's `Styles`/`Scripts` fields (or inline in the body) — NOT in `@section Styles { … }` / `@section Scripts { … }` blocks, which only work in the host/master layer.**
+**Therefore, deliver page/module CSS+JS one of two ways — NOT in `@section Styles { … }` / `@section Scripts { … }` (which only work in the host/master layer):**
 
-### 5a. Active navigation state (shared master, no per-page slug)
+- **Preferred — the template's `Styles`/`Scripts` fields**: pass CSS to `create_template(styles: …)` and JS to `create_template(scripts: …)`. The host view pipes them into the master's `@RenderSection("Styles")` (in `<head>`) and `@RenderSection("Scripts")` (before `</body>`). 🚨 `update_template` is **content-only** (no `styles`/`scripts` params) — so use this on the initial `create_template`. CSS at-rules in these raw fields are **plain** (`@media`), no `@@` escaping.
+- **Inline `<style>`/`<script>` in the body**: renders via `@RenderBody()`. Required when editing an existing template through `update_template`. Escape at-rules as `@@media`/`@@keyframes` (it's `.cshtml`).
+
+### 5a. Every nav link MUST resolve — no dead links
+
+A master's header/footer nav renders on **every** page, so one broken `href` breaks the whole site. Before writing each nav `<a href>`, decide page-vs-section and make it resolve:
+
+- **Separate page** → the `href` must match a page's URL. `href="/about"` only works if a page exists with `seoName: "about"`. For every multi-page nav target, **create the page** with `create_page_content` (this master as `layoutId`) before or right after saving the master.
+- **Section of the current page (one-pager)** → use an in-page anchor: `href="#about"` → `<section id="about">` in the body that renders inside `@RenderBody()`.
+
+Never ship `href="#"`, `href="javascript:void(0)"`, or a path to a page you haven't created. The brand/logo `href="/"` (home) is always valid. Example layouts use placeholder paths (`/about`, `/services`, …) — replace them with links to pages you actually create or real `#section` anchors.
+
+### 5b. Active navigation state (shared master, no per-page slug)
 
 The master layout renders for every page and has **no `@model`**, so it cannot know the current page server-side. Set the active nav link **client-side**: match `window.location.pathname` against each link's `href`, then add an `.active` class (+ `aria-current="page"`). Match the exact path OR a section prefix (so `/docs` stays active on `/docs/api`), and guard `'/'` so the home link doesn't match everything.
 

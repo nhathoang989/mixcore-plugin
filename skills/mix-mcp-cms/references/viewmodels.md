@@ -13,7 +13,7 @@ Widget and Form templates use `@model dynamic`.
 | `Widgets` | `@model dynamic` | — (no typed model) |
 | `Forms` | `@model dynamic` | — (binds to MixDB columns) |
 | `Masters` | none | — (never put `@model` in a master) |
-| `Data` | `@model dynamic` + `@inject IMixDbDataService db` | — (MixDB record detail) |
+| `Data` | `@model Mix.DataSource.Models.MixDbRow` | — (MixDB record detail at `/db/{table}/{id}`; controller passes the loaded row in as the model — **no `Layout`**, no re-query; `@section Seo` works because it renders as a main view) |
 
 ---
 
