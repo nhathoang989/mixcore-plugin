@@ -46,6 +46,7 @@ Two routers sit on top and delegate to the leaf skills:
 | `mixcore:mix-mcp-rag` | `/mixcore:mix-mcp-rag` | Site wiki / knowledge base — search, create, read, list, delete |
 | `mixcore:mix-mcp-spa` | `/mixcore:mix-mcp-spa` | Embed a built SPA (Vite/React/Vue/Svelte) with `layoutId=null` |
 | `mixcore:mix-mcp-build-site` | `/mixcore:mix-mcp-build-site` | Complete website from a brief — phased plan + schema + templates + pages |
+| `mixcore:mix-test-site` | `/mixcore:mix-test-site` | Smoke-test a built site — Playwright page drive + DB/MCP data cross-check; optional fresh-install + AI-build run |
 | `mixcore:mix-mcp-flows` | `/mixcore:mix-mcp-flows` | Flows workflows — webhook/manual/queue triggers, multi-step actions, run history |
 | `mixcore:mix-schedule` | `/mixcore:mix-schedule` | Scheduled cron jobs — recurring single Webhook/QueuePublish action, run-now, history |
 | `mixcore:mix-dev-module` | `/mixcore:mix-dev-module` | Scaffold a module (new project or add to existing) |

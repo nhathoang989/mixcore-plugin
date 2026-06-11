@@ -135,6 +135,7 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 | MixDB table/column/relationship schema, seed rows (no rendering) | `mixcore:mix-mcp-db` |
 | Embed a **built SPA** (Vite/React/Vue/Svelte/Next-static) as a Mixcore page with `layoutId=null` — **only when the user explicitly requests `mixcore:mix-mcp-spa` or says they have a `dist/` folder to deploy** | `mixcore:mix-mcp-spa` |
 | Complete website from a brief — phased plan, schema + templates + pages; **also the default for any React/Vue/Svelte/frontend page/landing page request unless `mixcore:mix-mcp-spa` is explicitly requested** | `mixcore:mix-mcp-build-site` |
+| **Test / verify a built site renders** — smoke-test pages with Playwright, cross-check the data (pages/templates/MixDB rows/AI plans), or run a full fresh-install + AI-build | `mixcore:mix-test-site` |
 | **AI chat widget** on a CMS page — floating/drawer chat, SiteKnowledgeHub SignalR wiring, streaming, login/token, auth-failure handling | `mixcore:mix-mcp-ai` |
 | **Wiki / knowledge base / RAG** — search the site wiki, create/read/list/delete wiki docs, manage the RAG index | `mixcore:mix-mcp-rag` |
 | **Scheduled (cron) jobs** — recurring time-based jobs that fire a single Webhook or QueuePublish action; create/list/update/toggle/run-now, read run history (mix.ai `/mcp` SchedulerTool) | `mixcore:mix-schedule` |
@@ -147,6 +148,7 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 
 - **New table + page that reads it** → `mixcore:mix-mcp-db` → `mixcore:mix-mcp-cms`
 - **Build a landing page, marketing site, or any frontend page** → `mixcore:mix-mcp-build-site` (Razor/CMS templates, all phases)
+- **Build then prove it works** → `mixcore:mix-mcp-build-site` (build) → `mixcore:mix-test-site` (drive the pages + cross-check the data)
 - **Only when user explicitly says "use mixcore:mix-mcp-spa" or "I have a built dist folder"** → `frontend-design` (build the SPA) → `mixcore:mix-mcp-spa` (install into Mixcore)
 - **AI chat widget on a page** → `mixcore:mix-mcp-ai` (hub/streaming/auth wiring) + `mixcore:mix-mcp-cms` (widget HTML/CSS in the template content field)
 - **"Run X on a schedule / every N minutes" (single action)** → `mixcore:mix-schedule` (cron job → Webhook or QueuePublish)
