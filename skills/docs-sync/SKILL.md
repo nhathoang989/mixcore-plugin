@@ -123,6 +123,8 @@ wiki/
 | `plugins/mixcore/skills/mix-mcp-cms/references/content-creation.md` | `system-prompts/instructions/content/pages.md`, `content/modules.md`, `content/posts.md` |
 | `plugins/mixcore/skills/mix-mcp-cms/references/form-templates.md` | `system-prompts/instructions/templates/form-template.md` |
 | `plugins/mixcore/skills/mix-mcp-cms/references/viewmodels.md` | `system-prompts/instructions/templates/page-template.md`, `post-template.md`, `module-template.md`, `widget-template.md` (ViewModel property tables) |
+| `plugins/mixcore/skills/mix-mcp-cms/references/design-system.md` | `system-prompts/instructions/templates/design-system.md` |
+| `plugins/mixcore/skills/mix-mcp-cms/references/design.md` | `system-prompts/instructions/templates/design.md` |
 | MCP tool signatures (live via ToolSearch) | `system-prompts/mcp/` files |
 | `plugins/mixcore/skills/mix-mcp-db/SKILL.md` | `system-prompts/instructions/mixdb/overview.md`, `database-creation-guide.md` |
 | `plugins/mixcore/skills/mix-mcp-flows/SKILL.md` | `src/cloud/MixCore.Cloud.Flows/README.md` (MCP Tools section) |

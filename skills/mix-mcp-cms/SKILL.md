@@ -25,6 +25,8 @@ Then replace every `mcp__mixcore__` reference in this skill with `{MCP_PREFIX}`.
 | **Data loading paths** — `QueryTable` vs `QueryRows` vs Razor injection, JSON filter format | [references/data-loading.md](references/data-loading.md) |
 | **Content creation** — folderType verification, template assignment, phase plan | [references/content-creation.md](references/content-creation.md) |
 | **Template ViewModels** — Page/Post/Module/Widget `Model` properties, `@model` matrix | [references/viewmodels.md](references/viewmodels.md) |
+| **Design system format & gate** — resolve/author/bootstrap `design.md`, token→CSS-var materialization | [references/design-system.md](references/design-system.md) |
+| **Global default `design.md`** — baseline tokens used when a site has no override | [references/design.md](references/design.md) |
 | **Form templates** — `frm-mixdb-ajax`, JS handler, hidden fields, API endpoint | [references/form-templates.md](references/form-templates.md) |
 | **Live MCP tool signatures and enums** | Use `ToolSearch` with `select:{MCP_PREFIX}<tool_name>` — schemas loaded directly from server |
 | **AI chat widgets** — SiteKnowledgeHub integration, SignalR frontend, drawer pattern | Use `mixcore:mix-mcp-ai` skill |
@@ -46,6 +48,24 @@ For AI chat widget tasks (floating chat, SiteKnowledgeHub, SignalR-connected wid
 3. **If none is available → proceed** with the design conventions already in this skill and the reference files. Do not block the task.
 
 > This raises visual quality and consistency. The frontend/UI skill informs **how the HTML/CSS looks**; this skill still governs **how it is created** — all output goes through MCP `CreateTemplate` / `UpdateTemplate`, never direct file edits.
+
+---
+
+## 🎨 Design-System-First: Resolve `design.md` Before Generating or Updating a Template
+
+**Before any `CreateTemplate` / `UpdateTemplate`**, resolve the site's design system. Full rules:
+[references/design-system.md](references/design-system.md).
+
+1. **Per-site override** — `read_document("<site-slug>/design.md")`.
+2. **Fallback** — if missing, use the global default [references/design.md](references/design.md).
+3. **Auto-bootstrap** — if there is no per-site `design.md` and this is a real site build,
+   synthesize one (brand input → requirements wiki → `frontend-design` output → global default),
+   save it via `generate_document("design", <content>, "<site-slug>")`, then proceed.
+4. **Apply** — use the resolved tokens; materialize them once into the master layout `:root {}`
+   as CSS variables and consume `var(--token)` in every other template. No off-palette literals.
+
+Gate order within a template task: **Wiki-First → Design-System-First → Frontend-Design-First →
+CreateTemplate → ValidateTemplate**.
 
 ---
 
@@ -258,6 +278,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 - ❌ Never use `SearchMixDbRequestModel`, `GetPagingAsync`, or `MixQueryField` in Razor templates — internal service types; use `MixDbFilter` and `GetRowsAsync`
 - ❌ **Never hardcode dynamic data in a template** — if a MixDB table exists for products, menu items, team members, etc., the template MUST load rows via `@inject IMixDbDataService db` and render them in a `@foreach` loop. Static HTML copies of database rows are always wrong: the CMS and the page diverge the moment any row is added/removed. See [mixdb-in-razor.md §NEVER HARDCODE](references/mixdb-in-razor.md) for the canonical loop + category-mapping pattern.
 - ❌ Never start a CMS task (page, module, post, template, form, MixDB table) without first reading the relevant docs from `wwwroot/mixcontent/wiki/` — skipping this causes duplicate IDs, wrong templates, and broken pages
+- ❌ **Never `CreateTemplate`/`UpdateTemplate` before resolving `design.md`** — read the per-site `<site-slug>/design.md` (or fall back to the global default; auto-bootstrap if missing), then generate from its tokens. Skipping it makes each template drift to a different palette/typography/spacing. See [references/design-system.md](references/design-system.md).
 - ❌ Never write generated documents outside `wwwroot/mixcontent/` — all wiki, planning, and AI-generated files belong there
 
 ---
