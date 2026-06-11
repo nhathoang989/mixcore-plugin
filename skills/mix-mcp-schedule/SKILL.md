@@ -1,5 +1,5 @@
 ---
-name: mix-schedule
+name: mix-mcp-schedule
 description: Use when creating, managing, running, or monitoring scheduled (cron) jobs via MCP tools — creating cron jobs that fire a Webhook or QueuePublish action, listing/getting jobs, updating cron or action config, enabling/disabling, running a job immediately (manual run), or reading run history. Trigger whenever the user mentions cron jobs, scheduled tasks, recurring jobs, "run every N minutes/hours/days", periodic webhooks, or anything resembling "on a schedule, do X." For event/webhook-triggered multi-step automations use mixcore:mix-mcp-flows instead.
 argument-hint: "[create|list|get|update|delete|toggle|run|history] [job description]"
 ---

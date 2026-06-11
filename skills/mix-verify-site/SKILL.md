@@ -1,13 +1,13 @@
 ---
-name: mix-test-site
-description: Smoke-test a built Mixcore site end-to-end against a running host — drive pages with Playwright, cross-check the DB (pages/templates/MixDB rows/AI plans), and (optionally) run a full fresh-install + AI-build in an isolated worktree. Use after building a site (mix-mcp-build-site, an AI site build, or CMS work) to confirm it actually renders and behaves — the browser/content counterpart to mix-dev-verify-mcp.
+name: mix-verify-site
+description: Smoke-test a built Mixcore site end-to-end against a running host — drive pages with Playwright, cross-check the DB (pages/templates/MixDB rows/AI plans), and (optionally) run a full fresh-install + AI-build in an isolated worktree. Use after building a site (mix-mcp-build-site, an AI site build, or CMS work) to confirm it actually renders and behaves — the browser/content counterpart to mix-verify-mcp.
 argument-hint: "[site-url-or-'fresh'] [what-to-verify]"
 allowed-tools:
   - Bash
   - Read
 ---
 
-You are verifying that a **built Mixcore site** actually works against a *running* host — pages render, navigation resolves, MixDB-driven content shows, no console errors — and that the underlying data (pages, templates, MixDB rows, AI plans) matches. This is the **content/browser axis**; it is the counterpart to `mixcore:mix-dev-verify-mcp` (which round-trips a `/mcp` tool but renders no pages).
+You are verifying that a **built Mixcore site** actually works against a *running* host — pages render, navigation resolves, MixDB-driven content shows, no console errors — and that the underlying data (pages, templates, MixDB rows, AI plans) matches. This is the **content/browser axis**; it is the counterpart to `mixcore:mix-verify-mcp` (which round-trips a `/mcp` tool but renders no pages).
 
 ## When to use
 
@@ -15,7 +15,7 @@ You are verifying that a **built Mixcore site** actually works against a *runnin
 - To smoke-test that a page, module, template, or MixDB-backed list shows real data in a browser — not just that a build is green or an MCP call returned 200.
 - To run a **full fresh-install + AI-build** locally and watch it produce a browsable site.
 
-Pair with: `mixcore:mix-mcp-build-site` / `mixcore:mix-mcp-cms` (build the thing), `mixcore:mix-mcp-db` (inspect MixDB), `mixcore:mix-dev-verify-mcp` (tool-level round-trip). Use Playwright MCP for the browser drive (load its `browser_*` tools first via `ToolSearch`, query: `playwright browser navigate snapshot click`).
+Pair with: `mixcore:mix-mcp-build-site` / `mixcore:mix-mcp-cms` (build the thing), `mixcore:mix-mcp-db` (inspect MixDB), `mixcore:mix-verify-mcp` (tool-level round-trip). Use Playwright MCP for the browser drive (load its `browser_*` tools first via `ToolSearch`, query: `playwright browser navigate snapshot click`).
 
 ---
 

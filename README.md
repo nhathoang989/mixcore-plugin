@@ -45,17 +45,15 @@ Two routers sit on top and delegate to the leaf skills:
 | `mixcore:mix-mcp-ai` | `/mixcore:mix-mcp-ai` | AI chat widget — SiteKnowledgeHub SignalR, streaming, auth/token |
 | `mixcore:mix-mcp-rag` | `/mixcore:mix-mcp-rag` | Site wiki / knowledge base — search, create, read, list, delete |
 | `mixcore:mix-mcp-spa` | `/mixcore:mix-mcp-spa` | Embed a built SPA (Vite/React/Vue/Svelte) with `layoutId=null` |
-| `mixcore:mix-mcp-build-site` | `/mixcore:mix-mcp-build-site` | Complete website from a brief — phased plan + schema + templates + pages |
-| `mixcore:mix-test-site` | `/mixcore:mix-test-site` | Smoke-test a built site — Playwright page drive + DB/MCP data cross-check; optional fresh-install + AI-build run |
-| `mixcore:mix-mcp-flows` | `/mixcore:mix-mcp-flows` | Flows workflows — webhook/manual/queue triggers, multi-step actions, run history |
-| `mixcore:mix-schedule` | `/mixcore:mix-schedule` | Scheduled cron jobs — recurring single Webhook/QueuePublish action, run-now, history |
+| `mixcore:mix-mcp-build-site` | `/mixcore:mix-mcp-build-site` | Complete website from a brief — phased plan + schema + templates + pages || `mixcore:mix-mcp-flows` | `/mixcore:mix-mcp-flows` | Flows workflows — webhook/manual/queue triggers, multi-step actions, run history |
+| `mixcore:mix-mcp-schedule` | `/mixcore:mix-mcp-schedule` | Scheduled cron jobs — recurring single Webhook/QueuePublish action, run-now, history |
+| `mixcore:mix-verify-site` | `/mixcore:mix-verify-site` | Verify a built site — Playwright page drive + DB/MCP data cross-check; optional fresh-install + AI-build run |
+| `mixcore:mix-verify-mcp` | `/mixcore:mix-verify-mcp` | Round-trip-verify an MCP tool against a running host (isolated worktree + alt port) |
 | `mixcore:mix-dev-module` | `/mixcore:mix-dev-module` | Scaffold a module (new project or add to existing) |
 | `mixcore:mix-dev-dotnet-code` | `/mixcore:mix-dev-dotnet-code` | C# 12 / .NET 10 — ViewModels, CQRS handlers, EF Core |
 | `mixcore:mix-dev-dotnet-cli` | `/mixcore:mix-dev-dotnet-cli` | `dotnet` build / test / run / migrations / packages |
 | `mixcore:mix-dev-migration` | `/mixcore:mix-dev-migration` | EF Core migrations across all 4 provider contexts |
-| `mixcore:mix-dev-tests` | `/mixcore:mix-dev-tests` | xUnit controller / migration / installation tests |
-| `mixcore:mix-dev-verify-mcp` | `/mixcore:mix-dev-verify-mcp` | round-trip-verify an MCP tool against a running host (isolated worktree + alt port) |
-| `mixcore:mix-dev-blazor-app` | `/mixcore:mix-dev-blazor-app` | Blazor Web App components, pages, services, render modes |
+| `mixcore:mix-dev-tests` | `/mixcore:mix-dev-tests` | xUnit controller / migration / installation tests || `mixcore:mix-dev-blazor-app` | `/mixcore:mix-dev-blazor-app` | Blazor Web App components, pages, services, render modes |
 | `mixcore:mix-dev-blazor-blueprint` | `/mixcore:mix-dev-blazor-blueprint` | shadcn-style dashboards via BlazorBlueprint.Components |
 
 See each skill's `SKILL.md` under `skills/` for details.

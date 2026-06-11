@@ -31,7 +31,7 @@ If the task needs multiple skills, run the combination pattern in order. The fir
 | `dotnet build` / `dotnet test` / `dotnet run` / `dotnet add package` | `mixcore:mix-dev-dotnet-cli` |
 | **EF Core migration** — adding `dotnet ef migrations add` after changing an entity in `mix.database` | `mixcore:mix-dev-migration` |
 | xUnit tests — controller unit tests, migration tests, fake services, integration tests | `mixcore:mix-dev-tests` |
-| **Round-trip-verify an MCP tool** — confirm a new/changed `/mcp` tool registers and behaves correctly against a *running* host (isolated worktree on an alt port, stateless SSE JSON-RPC to `/mcp`), without disrupting the dev app on `:5000` | `mixcore:mix-dev-verify-mcp` |
+| **Round-trip-verify an MCP tool** — confirm a new/changed `/mcp` tool registers and behaves correctly against a *running* host (isolated worktree on an alt port, stateless SSE JSON-RPC to `/mcp`), without disrupting the dev app on `:5000` | `mixcore:mix-verify-mcp` |
 
 ---
 
@@ -119,7 +119,7 @@ Typical use: `ListServices("MixDb")` to find the service, then `DiscoverService(
 - **Add EF migration after schema change** → `mixcore:mix-dev-dotnet-code` (entity change) → `mixcore:mix-dev-migration` (run all 4 provider migrations)
 - **Full feature (module + Blazor UI + tests)** → `mixcore:mix-dev-module` → `mixcore:mix-dev-dotnet-code` → `mixcore:mix-dev-blazor-app` → `mixcore:mix-dev-tests` → `mixcore:mix-dev-dotnet-cli`
 - **Add controller / service / MCP tool to existing module** → `mixcore:mix-dev-dotnet-code` → `mixcore:mix-dev-dotnet-cli` (build + verify)
-- **Add/change an MCP tool, then prove it live** → `mixcore:mix-dev-dotnet-code` → `mixcore:mix-dev-dotnet-cli` (build) → `mixcore:mix-dev-verify-mcp` (round-trip the tool against a running host)
+- **Add/change an MCP tool, then prove it live** → `mixcore:mix-dev-dotnet-code` → `mixcore:mix-dev-dotnet-cli` (build) → `mixcore:mix-verify-mcp` (round-trip the tool against a running host)
 - **Brand-new standalone project with API** → `mixcore:mix-dev-module` (scaffold entire project) → `mixcore:mix-dev-dotnet-cli` (build + verify)
 
 ---

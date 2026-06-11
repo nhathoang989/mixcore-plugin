@@ -1,5 +1,5 @@
 ---
-name: mix-dev-verify-mcp
+name: mix-verify-mcp
 description: Round-trip-verify a mixcore-cloud /mcp tool end-to-end without disrupting the running dev app — isolated git worktree on an alternate port + stateless SSE JSON-RPC calls to /mcp. Use after adding or changing an MCP tool (server-side behavior a build + unit test can't fully prove).
 argument-hint: "[tool_name] [merge-sha-or-branch]"
 allowed-tools:

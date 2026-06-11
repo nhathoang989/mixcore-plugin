@@ -1,6 +1,6 @@
 # Scheduler MCP — Extended Examples
 
-All examples use the `mix-schedule` MCP tools (mix.ai `/mcp`). `tenantId` is omitted everywhere — it resolves from the request domain.
+All examples use the `mix-mcp-schedule` MCP tools (mix.ai `/mcp`). `tenantId` is omitted everywhere — it resolves from the request domain.
 
 ## Create a Webhook job (every 5 minutes)
 

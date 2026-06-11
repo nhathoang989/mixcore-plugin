@@ -135,10 +135,10 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 | MixDB table/column/relationship schema, seed rows (no rendering) | `mixcore:mix-mcp-db` |
 | Embed a **built SPA** (Vite/React/Vue/Svelte/Next-static) as a Mixcore page with `layoutId=null` — **only when the user explicitly requests `mixcore:mix-mcp-spa` or says they have a `dist/` folder to deploy** | `mixcore:mix-mcp-spa` |
 | Complete website from a brief — phased plan, schema + templates + pages; **also the default for any React/Vue/Svelte/frontend page/landing page request unless `mixcore:mix-mcp-spa` is explicitly requested** | `mixcore:mix-mcp-build-site` |
-| **Test / verify a built site renders** — smoke-test pages with Playwright, cross-check the data (pages/templates/MixDB rows/AI plans), or run a full fresh-install + AI-build | `mixcore:mix-test-site` |
+| **Test / verify a built site renders** — smoke-test pages with Playwright, cross-check the data (pages/templates/MixDB rows/AI plans), or run a full fresh-install + AI-build | `mixcore:mix-verify-site` |
 | **AI chat widget** on a CMS page — floating/drawer chat, SiteKnowledgeHub SignalR wiring, streaming, login/token, auth-failure handling | `mixcore:mix-mcp-ai` |
 | **Wiki / knowledge base / RAG** — search the site wiki, create/read/list/delete wiki docs, manage the RAG index | `mixcore:mix-mcp-rag` |
-| **Scheduled (cron) jobs** — recurring time-based jobs that fire a single Webhook or QueuePublish action; create/list/update/toggle/run-now, read run history (mix.ai `/mcp` SchedulerTool) | `mixcore:mix-schedule` |
+| **Scheduled (cron) jobs** — recurring time-based jobs that fire a single Webhook or QueuePublish action; create/list/update/toggle/run-now, read run history (mix.ai `/mcp` SchedulerTool) | `mixcore:mix-mcp-schedule` |
 | **Flows workflows** — webhook/manual/queue-triggered, multi-step automations (HttpRequest, SendEmail, SignalRBroadcast, QueuePublish); create/trigger/monitor/cancel runs (mix.ai `/mcp` Flows tools) | `mixcore:mix-mcp-flows` |
 | Coding / backend / Blazor / .NET source change, **or** a server-side bug / missing capability that blocks an MCP task | 🚨 **STOP — do not switch to `mixcore:mixdev` and do not edit source.** File a GitHub issue, report it to the user, and await their decision. See [GitHub Issue Escalation](#github-issue-escalation). |
 
@@ -148,13 +148,13 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 
 - **New table + page that reads it** → `mixcore:mix-mcp-db` → `mixcore:mix-mcp-cms`
 - **Build a landing page, marketing site, or any frontend page** → `mixcore:mix-mcp-build-site` (Razor/CMS templates, all phases)
-- **Build then prove it works** → `mixcore:mix-mcp-build-site` (build) → `mixcore:mix-test-site` (drive the pages + cross-check the data)
+- **Build then prove it works** → `mixcore:mix-mcp-build-site` (build) → `mixcore:mix-verify-site` (drive the pages + cross-check the data)
 - **Only when user explicitly says "use mixcore:mix-mcp-spa" or "I have a built dist folder"** → `frontend-design` (build the SPA) → `mixcore:mix-mcp-spa` (install into Mixcore)
 - **AI chat widget on a page** → `mixcore:mix-mcp-ai` (hub/streaming/auth wiring) + `mixcore:mix-mcp-cms` (widget HTML/CSS in the template content field)
-- **"Run X on a schedule / every N minutes" (single action)** → `mixcore:mix-schedule` (cron job → Webhook or QueuePublish)
+- **"Run X on a schedule / every N minutes" (single action)** → `mixcore:mix-mcp-schedule` (cron job → Webhook or QueuePublish)
 - **"When X happens, do A then B then C" (event/webhook trigger, multi-step)** → `mixcore:mix-mcp-flows`
 
-> **Scheduler vs Flows:** time-based + one action → `mixcore:mix-schedule`. Webhook/manual/queue trigger or multi-step pipeline → `mixcore:mix-mcp-flows`. A Flows `Schedule` trigger overlaps for simple recurring single actions — prefer `mixcore:mix-schedule` when there are no extra steps.
+> **Scheduler vs Flows:** time-based + one action → `mixcore:mix-mcp-schedule`. Webhook/manual/queue trigger or multi-step pipeline → `mixcore:mix-mcp-flows`. A Flows `Schedule` trigger overlaps for simple recurring single actions — prefer `mixcore:mix-mcp-schedule` when there are no extra steps.
 
 - **A task that mixes CMS content with a code/server need** → do the content part here via MCP (`mixcore:mix-mcp-cms` / `mixcore:mix-mcp-db`); for the code/server part, **file a GitHub issue and report to the user — never switch to `mixcore:mixdev` from a `/mixcore:mixcore` session.**
 

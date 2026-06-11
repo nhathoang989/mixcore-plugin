@@ -128,7 +128,7 @@ wiki/
 | MCP tool signatures (live via ToolSearch) | `system-prompts/mcp/` files |
 | `plugins/mixcore/skills/mix-mcp-db/SKILL.md` | `system-prompts/instructions/mixdb/overview.md`, `database-creation-guide.md` |
 | `plugins/mixcore/skills/mix-mcp-flows/SKILL.md` | `src/cloud/MixCore.Cloud.Flows/README.md` (MCP Tools section) |
-| `plugins/mixcore/skills/mix-schedule/SKILL.md` | `src/cloud/MixCore.Cloud.Scheduler/README.md` (MCP Tools section) |
+| `plugins/mixcore/skills/mix-mcp-schedule/SKILL.md` | `src/cloud/MixCore.Cloud.Scheduler/README.md` (MCP Tools section) |
 | `plugins/mixcore/skills/mix-dev-blazor-app/SKILL.md` | No direct counterpart — note architectural facts in `system-prompts/instructions/overview/mixcore-cms-overview.md` |
 | `plugins/mixcore/skills/mixcore/SKILL.md` | `system-prompts/instructions/start-here.md` (agent protocol section) |
 | `plugins/mixcore/skills/mixdev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
