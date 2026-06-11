@@ -71,6 +71,8 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 1. **Always** prefix with `../[FolderType]/` — never a bare filename or root-relative path.
 2. **FileName MUST include the `.cshtml` extension** — `Header.cshtml`, never `Header`.
 
+> The same `.cshtml` rule applies when **creating** a template: pass `create_template(fileName: "Master.cshtml", …)`, never `"Master"`. The renderer resolves a layout/partial path as `{FileFolder}/{FileName}` verbatim, so a `fileName` without the extension yields an unresolvable path (`The partial view 'X' was not found`).
+
 ```cshtml
 ✅  @await Html.PartialAsync("../Modules/Header.cshtml")
 ✅  @await Html.PartialAsync("../Modules/ProductCard.cshtml", product)
