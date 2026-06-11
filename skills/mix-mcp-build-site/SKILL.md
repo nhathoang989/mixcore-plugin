@@ -270,7 +270,7 @@ Tasks:
    - Must include exactly ONE `@RenderBody()`, ONE `@RenderSection("Styles", false)`, ONE `@RenderSection("Scripts", false)`
    - Include `<!--[STYLES]-->` comment before Styles section
    - Include Bootstrap 5 CDN, Font Awesome
-   - **Favicon** — add a `<link rel="icon">` tag in `<head>` pointing to a publicly accessible URL. Generate one via `https://www.favicon.cc/?action=icon&url=https://img.icons8.com/color/48/000000/<icon-name>.png` or use `https://favicon.io/emoji-favicons/` to pick an emoji-based favicon. Common fallback: `https://img.icons8.com/color/48/000000/globe--v1.png`. The favicon MUST be a full public URL — never a relative path.
+   - **Favicon** — generate a *suitable, brand-matched* SVG favicon (do NOT link a generic stock globe). Author a 32×32 `viewBox` SVG using the site's primary/accent colors — a monogram (brand initial) or a simple glyph that echoes the brand — then write it with `write_text_file(path: "generated-data/<site-slug>-favicon.svg", content: "<svg …>")`. TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it is served at `/mixcontent/documents/generated-data/<site-slug>-favicon.svg`. Reference it in `<head>`: `<link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<site-slug>-favicon.svg" />`. This is self-contained with no third-party dependency. Example monogram SVG: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. (A full `https://…` public PNG/ICO URL in `href` is an acceptable alternative, but the generated local SVG is the default — never a bare relative path that is not under `/mixcontent/…`.)
    - Navigation links from `site-architecture.md`
    - Footer with newsletter form hook
 3. Record returned `layoutId` in progress-tracker
@@ -438,7 +438,7 @@ Execute Phase 7: Verify & Fix
 | **Accent** | `#667eea` |
 | **Typography** | System font stack |
 | **Responsive** | Mobile `<768px`, Tablet `768–991px`, Desktop `≥992px` |
-| **Favicon** | Generate a public favicon URL: `https://favicon.io/emoji-favicons/` (emoji picker), `https://www.favicon.cc/?action=icon&url=<public-icon-url>` (convert any icon), or pick from `https://img.icons8.com/color/48/000000/<icon-slug>.png`. Always a full public URL in `<link rel="icon" href="...">` — never a relative path. |
+| **Favicon** | Generate a *suitable, brand-matched* SVG (32×32 `viewBox`; a monogram or simple glyph in the site's primary/accent colors), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", …)`, and link it in `<head>`: `<link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />`. Local generated SVG is the default (served from the documents folder); a full `https://…` public URL is an acceptable alternative — never a generic stock globe and never a bare relative path outside `/mixcontent/…`. |
 | **Images** | Full public URLs only (`https://images.unsplash.com/...`) — no relative paths |
 | **CSS escaping** | All `@media`, `@keyframes`, `@font-face` must be `@@media`, `@@keyframes`, `@@font-face` in MCP content strings |
 

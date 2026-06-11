@@ -99,7 +99,7 @@ Two ways to name a partial:
 <!DOCTYPE html>
 <html>
 <head>
-    @RenderSection("Schema", false)       @* 0 or 1 times *@
+    <link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />  @* brand favicon — generate an SVG (see below) *@
     @RenderSection("Seo", false)          @* required — declare in every master; pages fill optionally *@
     <!--[STYLES]-->                       @* Mix CMS styles injection point — keep this comment *@
     @RenderSection("Styles", false)       @* exactly 1 time *@
@@ -120,7 +120,8 @@ Each `@RenderSection` name must appear **exactly once**. Duplicating any section
 | `Seo` | ✅ Required in every master | The host view (`PublicPage.cshtml`), built from the page's SEO fields |
 | `Styles` | ✅ Required in every master | The host view, from the template's `Styles` field |
 | `Scripts` | ✅ Required in every master | The host view, from the template's `Scripts` field |
-| `Schema` | Optional | Optional |
+
+**Favicon (generate a suitable one — do not hard-code a generic globe):** author a 32×32 `viewBox` SVG in the site's brand colors (a monogram or simple glyph), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", content: "<svg …>")` — TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it serves at `/mixcontent/documents/generated-data/<slug>-favicon.svg` — then reference it in `<head>` as shown above. Example: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. A full `https://…` public URL in `href` is an acceptable alternative.
 
 🚨 **Pages/Modules templates are rendered as nested `<partial>` by the host view** (`PublicPage.cshtml` does `<partial name="@Model.TemplateFilePath" model="@Model" />`). `@section` blocks declared **inside a partial are silently dropped** — Razor only honors `@section` in a view that participates in the layout (the host view / master). The host view itself supplies `@section Seo`, `@section Styles`, and `@section Scripts`, pulling Styles/Scripts from the template's `Styles`/`Scripts` fields.
 
