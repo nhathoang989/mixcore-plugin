@@ -19,7 +19,7 @@ argument-hint: "<describe your task — auto-routes to the right mixcore:* skill
 
 When invoked with a task (e.g. `/mixcore:mixcore create a contact form` or `/mixcore:mixcore add a price column to products`), you **must**:
 
-1. **Resolve the MCP server** (see Step 0 below — one-time setup, then cached)
+1. **Resolve the MCP server** (see Step 0 below — read from the connected MCP session, never hardcoded)
 2. **Search the wiki** — `{MCP_PREFIX}search(query: "<task subject>")` (see Step 1 below)
 3. **Load live site state via MCP tools** (see Step 2 below)
 4. Match the task to ONE row in the Skill Map below (closest match wins; never ask)
@@ -34,46 +34,40 @@ If the task needs multiple skills, run the combination pattern in order. The fir
 
 ---
 
-## Step 0 — Resolve MCP Server (one-time, then cached)
+## Step 0 — Resolve MCP Server (per session, read from the connected MCP)
 
 **Do this before any MCP call.**
 
-### 0a. Check for saved preference
+> 🚨 **Never hardcode or persist the MCP server.** The server is whatever is **connected to the current session** — resolve it dynamically every session. There is no config file to read or write.
 
-Use the `Read` tool to read `plugins/mixcore/skills/mixcore/server-config.md`.
+### 0a. Detect the connected Mixcore server
 
-- **If the file exists and contains a server name** → set `MCP_PREFIX = mcp__{server-name}__` and skip to Step 1.
-- **If the file does not exist** → proceed to 0b.
+Look at the MCP tools available in the **current session** (the deferred-tools list / `ToolSearch` results). Mixcore tool names have the form `mcp__{server-name}__<tool>` — collect every distinct `{server-name}` that serves Mixcore tools (e.g. `mixcore`, `mixcore-bk`, `mixcore-cloud`).
 
-### 0b. Detect available servers
+Cross-reference `.mcp.json` in the repo root only to read each connected server's `url` (needed for `SITE_URL` in 0c) — never to pick a server that isn't actually connected.
 
-Read `.mcp.json` in the repo root. Find all server keys whose name contains "mixcore" (e.g. `mixcore`, `mixcore-bk`). Build a list of `(name, url)` pairs from the `mcpServers` object.
+### 0b. Choose when more than one is connected
 
-### 0c. Ask the user which server to use
+- **Exactly one connected Mixcore server** → use it. No question, nothing saved.
+- **Multiple connected** → ask once per session via `AskUserQuestion` (one option per server, label = name, description = its `url`). The answer is **session-scoped only** — do not write it to any file.
 
-Call `AskUserQuestion` with one question. Present one option per discovered Mixcore server plus an "Other" option for a custom name:
+Set `MCP_PREFIX = mcp__{server-name}__`.
+
+### 0c. Derive the app/site URL from the MCP endpoint (`SITE_URL`)
+
+> 🚨 **The app URL is always derived from the MCP server endpoint — never assumed.**
+
+Read the chosen server's `url` from `.mcp.json` and strip the `/mcp` path to get the site origin:
 
 ```
-Question: "Which Mixcore MCP server should this skill use?"
-Header: "MCP server"
-Options:
-  - label: "<name>"  description: "<url from .mcp.json>"   ← one per discovered server
+"url": "https://mixcore.cloud/mcp"   →   SITE_URL = https://mixcore.cloud
+"url": "http://localhost:5000/mcp"   →   SITE_URL = http://localhost:5000
 ```
 
-Pick the first discovered server as the default (recommended). If only one server exists, skip the question and use it automatically.
+Use `SITE_URL` for **everything that touches the running site over HTTP**: browser verification (Playwright page checks, screenshots), REST smoke tests, and any links you report to the user (`{SITE_URL}/blog`, `{SITE_URL}/db/{table}/{id}`, …).
 
-### 0d. Save the selection
-
-Write the chosen server name (just the key, e.g. `mixcore-bk`) to `plugins/mixcore/skills/mixcore/server-config.md`:
-
-```markdown
-# Mixcore MCP Server Config
-server: mixcore-bk
-```
-
-Use the `Write` tool to create the file. Then set `MCP_PREFIX = mcp__{chosen-name}__`.
-
-> **Reset:** The user can delete `plugins/mixcore/skills/mixcore/server-config.md` at any time to be asked again on the next invocation.
+- **Never default to `http://localhost:5000`** — the configured MCP server may be the live cloud site; localhost then gives `ERR_CONNECTION_REFUSED` or stale content while the real changes are live elsewhere.
+- The content you just created via MCP tools lives on the server behind the MCP endpoint — so that same origin is, by definition, where it must be verified.
 
 ---
 

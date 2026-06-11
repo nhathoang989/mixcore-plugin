@@ -10,14 +10,11 @@ You are building **websites with Mixcore CMS** using **MCP-First Development**.
 
 ## Step 0 — Resolve MCP Server
 
-Before any MCP call, resolve `{MCP_PREFIX}`:
+Before any MCP call, resolve `{MCP_PREFIX}` and `{SITE_URL}` **from the connected MCP session** — never from a hardcoded or persisted config. Follow `plugins/mixcore/skills/mixcore/mcp-prefix.md` (canonical): detect the connected `mcp__{server-name}__*` Mixcore server, set `MCP_PREFIX = mcp__{server-name}__`, and derive `SITE_URL` from that server's `url` in `.mcp.json` (strip `/mcp`). Use `SITE_URL` for all browser verification and reported links — never assume `localhost`.
 
-1. Read `plugins/mixcore/skills/mixcore/server-config.md`.
-   - If it exists and contains a server name → set `MCP_PREFIX = mcp__{server-name}__` (e.g. `mcp__mixcore-cloud__`).
-   - If the file does not exist → run **Step 0** from the `mixcore:mixcore` skill to detect and persist the server, then return here.
-2. Replace every `mcp__mixcore__` reference in this skill with `{MCP_PREFIX}`.
+Then replace every `mcp__mixcore__` reference in this skill with `{MCP_PREFIX}`.
 
-> This step is skipped automatically when `mixcore:mix-mcp-cms` is invoked via the `mixcore:mixcore` router (which already resolved `{MCP_PREFIX}` in its own Step 0).
+> This step is skipped automatically when `mixcore:mix-mcp-cms` is invoked via the `mixcore:mixcore` router (which already resolved `{MCP_PREFIX}` and `{SITE_URL}` in its own Step 0).
 
 ## Reference files (load when relevant)
 

@@ -78,9 +78,12 @@ The suite splits along *how* Claude acts on the target platform:
 - **Content axis — MCP-first (`mixcore` router → `mix-mcp-*`).** These operate a *running*
   Mixcore CMS through MCP tools (`mcp__{server}__*`), never by editing CMS files directly, so
   changes register migrations, broadcast via SignalR, and invalidate cache. The router resolves
-  `{MCP_PREFIX}` in a "Step 0": read `skills/mixcore/server-config.md` for the server name →
-  `mcp__{server-name}__`; if absent, detect the server and persist it there. Leaves assume the
-  prefix is already resolved when reached via the router. Wiki docs are managed through the
+  `{MCP_PREFIX}` and `{SITE_URL}` in a "Step 0" **dynamically from the connected MCP session**
+  (canonical procedure: `skills/mixcore/mcp-prefix.md`): detect the connected
+  `mcp__{server-name}__*` server (never hardcoded/persisted — no config file), and derive
+  `SITE_URL` from that server's `url` in `.mcp.json` (strip `/mcp`) for all browser
+  verification and reported links. Leaves assume both are already resolved when reached via
+  the router. Wiki docs are managed through the
   `mix-mcp-rag` tools, **not** file writes (file writes bypass the RAG index).
 
 - **Code axis — source edits (`mixdev` router → `mix-dev-*`).** These edit C# 12 / .NET 10 /
