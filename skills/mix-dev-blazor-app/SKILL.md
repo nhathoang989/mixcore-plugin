@@ -139,22 +139,26 @@ dotnet run --project src/host/mixcore.host
 
 ## Headless Data-Loading Rule
 
-**Mixcore is a headless CMS: every portal/admin section's data MUST be reachable through the REST
-API contract — not loaded only by injecting `IMediator` / a service / `DbContext` straight into the
-section.** If a section has no backing endpoint, **create the controller** (`[ApiController]
-[Authorize]`, `mix.lib` base controller, **camelCase** anonymous DTOs — raw ViewModels serialize
-PascalCase and render blank).
+**Mixcore is a headless CMS: every portal/admin section loads its data over the REST API via a shared
+typed client — never by injecting `IMediator` / a service / `DbContext` straight into the section.**
+The whole client layer lives in **`src/platform/common/mix.ui.shared/Services`**: `I*ApiClient`
+interfaces returning **`ApiResult<T>`**, the **`LoopbackApiClient`** base (Http/Json/GetJsonAsync/
+SendAsync/SendJsonAsync, never throws), the loopback `Http*ApiClient` impls (canonical: `FlowsApiClient`),
+and the `ILocalApiClient` + token plumbing. The section injects `I*ApiClient` and reads
+`res.Success ? res.Data : res.Error`. If a section has no backing endpoint, **create the controller**
+(`[ApiController] [Authorize]`, `mix.lib` base controller).
 
-But **never let a co-hosted Blazor Server circuit call its own Kestrel over loopback HTTP — it
-deadlocks the circuit** (→ SignalR "Server timeout"). Reconcile both with the **transport
-abstraction**: the UI depends on an `IXxxApiClient` interface with **two** impls — `InProcessXxx`
-(MediatR/service, co-hosted **default**) and `HttpXxx` (`"LocalApi"`, separate-process). This
-mirrors the shipped `IMixLogTransport` → `InProcessMixLogTransport` / `HttpMixLogTransport`.
+**Co-hosted loopback HTTP is SAFE now** — the old "circuit deadlocks on a loopback self-call" rule is
+RESOLVED (async `RefreshTokenHandler` + co-hosted `InProcessTokenRenewer` keeping renew off the
+loopback socket + scoped per-circuit `LocalApiClient`). `Program.cs` binds the loopback clients; the
+`InProcess*ApiClient` transports were removed (kept only for the 3 REST-less blockers + token-renewer/
+mixlog; read-only InProcess stripped to static `QueryXxxAsync` engines for the controllers).
 
-**Every HTTP data call retries once on `401` by refreshing the access token** — the
-`HttpClient`/XHR analogue of `AdminTokenHelper` (which only covers browser-navigation 401s).
-Register the (currently unregistered) `"LocalApi"` client with a single-flight `RefreshTokenHandler`
-`DelegatingHandler`; do not mutate the shared client's `DefaultRequestHeaders`.
+**Tenant is resolved SERVER-SIDE from the signed JWT claim** (`TenantControllerBase` / `TenantResolver.Resolve`),
+never `?? 1` — loopback Bearer calls carry no tenant cookie, and the client must not send tenant.
+**JSON is camelCase + enums-by-name globally** (`Program.cs` `AddNewtonsoftJson`), so raw ViewModels are fine.
+🚨 **`OnInitializedAsync` runs BEFORE `OnParametersSet`** — seed the per-circuit token before any
+init-time loopback call, and guard init loads, or the circuit crashes on a pre-token 401.
 
 **Read [references/headless-data-loading.md](references/headless-data-loading.md) before adding or
 refactoring any section that loads data** — it has the full pattern, the `Program.cs` wiring, the
