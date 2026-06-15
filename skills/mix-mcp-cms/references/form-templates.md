@@ -179,8 +179,5 @@ new FormData(form).forEach(function (v, k) {
 ## Critical Don'ts (forms-specific)
 
 - ❌ Never use a typed ViewModel in a Form template — form templates require `@model dynamic`
-- ❌ Never omit `class="frm-mixdb-ajax"` or `data-mixdb-table` from a form tag — both are mandatory for MixDB form submission
-- ❌ Never put the `frm-mixdb-ajax` JavaScript handler inside a Form or Page template — it belongs in the Master layout only; duplicating causes double-submit on pages with multiple forms
-- ❌ Never post a public form to `api/v1/rest/data-source/{dataSourceName}/table/{tableName}` — that endpoint is permission-checked and 401/403s for anonymous submitters. Public `frm-mixdb-ajax` forms post to `api/v1/rest/mixdb/data/{tableName}` (the `[AllowAnonymous]` `PublicMixDbDataController`)
-- ❌ Never include `id`, `created_date_time`, or `created_by` fields in a form — they are auto-set by the server
-- ❌ For `Integer`/`Double` columns: never leave number inputs without a `required` attribute or default value — an empty string coerces to `NULL` server-side. Add JS coercion (`/^-?\d+(\.\d+)?$/`) in the handler as a belt-and-suspenders measure even though the server now handles type coercion automatically.
+
+The other forms-specific rules are stated once in their sections above: both `class="frm-mixdb-ajax"` and `data-mixdb-table` are mandatory (attribute table); keep the JavaScript handler in the Master layout only ("JavaScript handler" section); public forms post to `api/v1/rest/mixdb/data/{tableName}`, never the permission-checked data-source endpoint ("API endpoint called by the handler"); never include the server-auto-set `id` / `created_date_time` / `created_by` ("Server-side handling"); and `required`/default + JS coercion for `Integer`/`Double` number inputs ("Numeric fields").

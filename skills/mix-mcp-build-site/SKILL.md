@@ -44,15 +44,19 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 - Forms: [Contact form, Newsletter …]
 - Features: [anything special detected]
 
-If this looks right, reply "go ahead" and I'll start planning.
+If this looks right, reply "go ahead" and I'll plan **and build** the whole site in one run.
 To adjust any part, answer the questions above or just tell me what to change.
 ```
 
 **4. Wait for user confirmation** before writing any planning documents or calling any MCP tools. Do NOT proceed to Step 1 until the user approves the outline or says to go ahead.
 
-### If IN auto-complete mode → Skip straight to Step 1
+### If NOT in auto-complete mode → after the outline is approved, run everything to completion
 
-Proceed immediately to Step 1 — Requirements Analysis & Planning Documents — using all context already provided by the user.
+**The clarification gate above is the ONLY stop.** Once the user approves the outline (or replies "go ahead"), proceed through Step 1 — Requirements Analysis & Planning Documents, then Steps 2–9, then continue **straight into Step 10 — Execute All Phases** — Steps 1–10 run continuously in the same session. **Do NOT stop a second time** to re-report the plan or wait for another "go ahead" before executing; writing the planning and prompt files is not the finish line, the built site is. Ask once, up front — then build the whole thing.
+
+### If IN auto-complete mode → skip the gate, plan and execute all phases
+
+Proceed immediately to Step 1 — Requirements Analysis & Planning Documents — using all context already provided by the user. **Do NOT stop after writing the planning and prompt files.** Once Steps 1–9 have produced the planning docs, phase instruction files, and prompt files, continue straight into **Step 10 — Execute All Phases** and run Phase 1 → Phase 7 in this same session. Auto-complete means "build the site," not "produce a plan."
 
 ---
 
@@ -80,7 +84,7 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 - Full reference: `mixcore:mix-mcp-cms/references/mixdb-in-razor.md` — read BEFORE writing template code
 - Every page template that queries data MUST include its own `@using Mix.DataSource.Models` + `@inject Mix.DataSource.Interfaces.IMixDbDataService db` — these do NOT inherit from the master layout
 
-**CSS @ escaping rule (all phases):** In MCP `content` parameters, escape ALL CSS at-rules: `@@media`, `@@keyframes`, `@@font-face`. Never use bare `@media` inside MCP strings.
+**CSS @ escaping rule (all phases):** In MCP `content` parameters, escape ALL CSS at-rules: `@@media`, `@@keyframes`, `@@font-face`. Never use bare `@media` inside MCP strings. **Double `@@` is ONLY for CSS at-rules (and literal `@` in CDN / scoped-npm URLs) — never double Razor directives** (`@model`, `@inject`, `@using`, `@if`, `@foreach`, `@Html.Raw`, `@Model.X`, `@(...)`): a doubled directive is emitted as literal text (`@model …` shows in the page) instead of executing.
 
 **Razor template rules (all phases):**
 - **`fileName` MUST include the `.cshtml` extension** — the CMS stores `FileName` exactly as passed and builds `TemplateFilePath = /{FileFolder}/{FileName}`. A missing extension causes a "template not found" error at runtime.
@@ -116,6 +120,8 @@ Proceed immediately to Step 1 — Requirements Analysis & Planning Documents —
 | 5 | Secondary Pages | `mixcore:mix-mcp-cms` | Blog listing, category, detail pages |
 | 6 | Forms & Widgets | `mixcore:mix-mcp-cms` + `mixcore:mix-mcp-db` | Contact form, newsletter, sidebar widgets |
 | 7 | Verify & Fix | `mixcore:mix-mcp-cms` + browser | All pages render correctly, bugs fixed |
+
+> **Validate-as-you-go:** every `.cshtml` template is compile-checked with `ValidateTemplate` immediately after each `CreateTemplate`/`UpdateTemplate` (phases 2–6) — fix `CS*`/`RZ*` errors and re-validate until `success:true` before building any content that renders it.
 
 > Wiki documentation is produced automatically: content created through the MCP tools is mirrored into the site wiki and indexed by the CRUD→wiki RAG pipeline. There is no manual wiki phase.
 
@@ -273,7 +279,8 @@ Tasks:
    - **Favicon** — generate a *suitable, brand-matched* SVG favicon (do NOT link a generic stock globe). Author a 32×32 `viewBox` SVG using the site's primary/accent colors — a monogram (brand initial) or a simple glyph that echoes the brand — then write it with `write_text_file(path: "generated-data/<site-slug>-favicon.svg", content: "<svg …>")`. TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it is served at `/mixcontent/documents/generated-data/<site-slug>-favicon.svg`. Reference it in `<head>`: `<link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<site-slug>-favicon.svg" />`. This is self-contained with no third-party dependency. Example monogram SVG: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. (A full `https://…` public PNG/ICO URL in `href` is an acceptable alternative, but the generated local SVG is the default — never a bare relative path that is not under `/mixcontent/…`.)
    - Navigation links from `site-architecture.md`
    - Footer with newsletter form hook
-3. Record returned `layoutId` in progress-tracker
+3. Validate the master template (`ValidateTemplate(templateId: <layoutId>)`) per the Agent Protocol rule before any page references it
+4. Record returned `layoutId` in progress-tracker
 
 **🚨 CRITICAL — Verify master compiles BEFORE building pages (Step 3.5):**
 After creating the master template and at least one page that uses it, **immediately verify the master compiles without errors** before creating the rest of the pages:
@@ -295,6 +302,7 @@ Tasks (for each module in `site-architecture.md`):
 1. `CreateTemplate(...)` or `UpdateTemplate(id, ...)` for the module template.
    - Model: `@model Mix.Rendering.ViewModels.ModuleContentViewModel` (or `@model dynamic` for MixDB-driven)
    - For MixDB-driven modules: verify schema columns from phase-1 before writing template code
+   - Validate the template (`ValidateTemplate`) per the Agent Protocol rule before creating the module content instance
 2. `CreateModuleContent(...)` or `UpdateModuleContent(id, ...)` — verify templateId has `folderType="Modules"` first
 3. Record each module's `id` and `systemName` in progress-tracker
 
@@ -314,6 +322,7 @@ Tasks (for each main page):
    - Model: `@model Mix.Rendering.ViewModels.PageContentViewModel`
    - Never include `@{ Layout = "..." }` — layout set via `layoutId` at content creation
    - Render associated modules with `Model.Modules.OrderBy(m => m.Priority)` loop + try-catch
+   - Validate the template (`ValidateTemplate`) per the Agent Protocol rule before creating the page content instance
 2. `CreatePageContent(...)` or `UpdatePageContent(id, ...)` based on step 0 result; always pass `layoutId: <master layoutId from phase-2>`.
 3. `CreatePageModuleAssociation(pageId, moduleId)` for each module dependency
 4. Record page IDs (including pre-existing ones) in progress-tracker
@@ -326,7 +335,7 @@ Tasks:
 - Blog listing page: queries MixDB posts with `IMixDbDataService` in template
 - Blog post page: uses `@model Mix.Rendering.ViewModels.PostContentViewModel`
 - Category pages: filter by `category_id` via `MixDbFilter.Where("category_id", id)`
-- Each page: same template → content → association flow as phase 4
+- Each page: same template → validate (`ValidateTemplate`) per the Agent Protocol rule → content → association flow as phase 4
 
 ### `wwwroot/mixcontent/planning/phase-6-forms.md` — Forms & Widgets
 
@@ -338,9 +347,11 @@ Tasks:
    - `<form class="frm-mixdb-ajax" data-mixdb-table="<site_name>_contacts">` (both attributes mandatory)
    - Verify the target MixDB table exists (created in phase 1)
    - **Numeric columns** (`Double`, `Integer`): the `frm-mixdb-ajax` handler must coerce `FormData` strings to JS numbers before `JSON.stringify`, or PostgreSQL raises error 42804 (`column "x" is of type double precision but expression is of type text`). Use `/^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : v` in the `forEach` loop. See `mixcore:mix-mcp-cms/references/form-templates.md` § Numeric fields.
+   - Validate the template (`ValidateTemplate`) per the Agent Protocol rule
 2. **Widgets** — `CreateTemplate(folderType: "Widgets")`:
    - Model: `@model dynamic` (default) or `ModuleContentViewModel` when passed from parent
    - Keep focused and single-purpose (newsletter, recent posts, search bar)
+   - Validate the template (`ValidateTemplate`) per the Agent Protocol rule
 3. Associate forms/widgets with pages via `CreatePageModuleAssociation`
 
 ### `wwwroot/mixcontent/planning/phase-7-verify.md` — Verify & Fix
@@ -426,18 +437,35 @@ Execute Phase 7: Verify & Fix
 
 ---
 
+## Step 10 — Execute All Phases
+
+**This is where the site actually gets built. Steps 1–9 only produced plans; this step runs them.**
+
+Execute Phase 1 → Phase 7 **sequentially in this same session**. Do not hand the prompt files back to the user and stop — those files are resume/recovery artifacts, not a substitute for running the phases now. Both modes reach here without a second approval: auto-mode skips the clarification gate; non-auto clarifies the outline once, then runs Steps 1–10 continuously after that one approval.
+
+For **each** phase N from 1 to 7:
+
+1. **Pre-check** — Read `wwwroot/mixcontent/planning/progress-tracker.md`; confirm Phase N-1 is ✅ Complete (Phase 1 has no predecessor). Read `requirements-analysis.md` and `phase-N-*.md`.
+2. **Invoke the phase's sub-skill** — `mixcore:mix-mcp-db` (phases 1, and 6 if new tables) or `mixcore:mix-mcp-cms` (phases 2–7), per the Phase Overview table.
+3. **Execute** every task in `phase-N-*.md` via MCP tools only (never Edit/Write for content). Validate each `.cshtml` with `ValidateTemplate` before building content on it.
+4. **Record** all generated IDs/system names and mark Phase N ✅ Complete (with date) in `progress-tracker.md`.
+5. **Stop-on-failure** — if a phase hits an error you cannot fix with MCP tools after a reasonable attempt, halt, mark the phase ⚠️ Blocked in the tracker with the exact error, and report to the user instead of skipping ahead. Later phases depend on earlier IDs — never continue past a blocked phase.
+
+After Phase 7 (Verify & Fix) completes clean, report a summary: pages built, their URLs (use the MCP-server origin from `.mcp.json`, not `localhost:5000`), tables seeded, and any issues found/fixed.
+
+> The phase files written in Steps 2–8 and the prompt files from Step 9 stay on disk so a fresh session can re-enter any single phase later — but in this run, execute them now rather than waiting to be re-prompted.
+
+---
+
 ## Content & Design Guidelines (All Phases)
 
 | Concern | Standard |
 |---|---|
 | **Writing style** | Professional, technical yet accessible, active voice |
 | **SEO** | Meta descriptions 150–160 chars, semantic HTML5, schema.org markup |
-| **Primary color** | `#007bff` |
-| **Secondary color** | `#6c757d` |
-| **Success color** | `#28a745` |
-| **Accent** | `#667eea` |
-| **Typography** | System font stack |
-| **Responsive** | Mobile `<768px`, Tablet `768–991px`, Desktop `≥992px` |
+| **Colors & palette** | Resolve from the site's `design.md` / `design-system.md` design tokens — do NOT hardcode hex values here. Fall back to the default token palette in `design.md` if the site has no design system yet. See `mixcore:mix-mcp-cms/references/design.md` and `design-system.md`. |
+| **Typography** | Resolve from the site's `design.md` / `design-system.md` typography tokens (font family + scale). See `mixcore:mix-mcp-cms/references/design.md`. |
+| **Responsive** | Resolve breakpoints from the site's `design.md` / `design-system.md` tokens (fall back to the `design.md` defaults) — do NOT hardcode a fixed breakpoint set here. See `mixcore:mix-mcp-cms/references/design.md`. |
 | **Favicon** | Generate a *suitable, brand-matched* SVG (32×32 `viewBox`; a monogram or simple glyph in the site's primary/accent colors), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", …)`, and link it in `<head>`: `<link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />`. Local generated SVG is the default (served from the documents folder); a full `https://…` public URL is an acceptable alternative — never a generic stock globe and never a bare relative path outside `/mixcontent/…`. |
 | **Images** | Full public URLs only (`https://images.unsplash.com/...`) — no relative paths |
 | **CSS escaping** | All `@media`, `@keyframes`, `@font-face` must be `@@media`, `@@keyframes`, `@@font-face` in MCP content strings |

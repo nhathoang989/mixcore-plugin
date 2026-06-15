@@ -69,31 +69,7 @@ CreateRow(dataSourceName: "crm", tableName: "leads",                dataJson: "{
 
 Used only in `.cshtml` templates. Always internal MixDb; does not connect to external DataSources.
 
-```cshtml
-@using Mix.DataSource.Models
-@inject Mix.DataSource.Interfaces.IMixDbDataService db
-
-@{
-    // List with optional filter
-    var products = await db.GetRowsAsync("<site_name>_products",
-        MixDbFilter.Where("is_active", true)
-                   .And("price", 0, ">"));
-
-    // Single row by ID
-    var single = await db.GetRowAsync("<site_name>_products", id: 1);
-}
-
-@foreach (var p in products) {
-    <div>@(p.Get<string>("name"))</div>
-    <div>$@(p.Get<double>("price", 0.0).ToString("N2"))</div>
-}
-
-@if (!single.IsEmpty) {
-    <h2>@(single.Get<string>("name"))</h2>
-}
-```
-
-`GetRowsAsync` returns `IReadOnlyList<MixDbRow>`. `GetRowAsync` returns `MixDbRow` (never null — check `.IsEmpty`).
+Razor path — see [mixdb-in-razor.md](mixdb-in-razor.md) for the full `GetRowsAsync`/`GetRowAsync` recipe + `MixDbRow` accessor reference.
 
 ---
 

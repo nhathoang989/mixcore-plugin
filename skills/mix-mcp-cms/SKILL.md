@@ -77,7 +77,7 @@ CreateTemplate → ValidateTemplate**.
 - **Templates**: Use `CreateTemplate`, `UpdateTemplate`, `DeleteTemplate`
 - **Page Content**: Use `CreatePageContent`, `UpdatePageContent`
 - **Module Content**: Use `CreateModuleContent`, `UpdateModuleContent`
-- **Text Files**: Use `WriteTextFile`, `AppendToTextFile` (for wiki/docs only)
+- **Text Files**: Use `WriteTextFile`, `AppendToTextFile` for **planning docs only** — **never for wiki** (see exceptions below)
 - **MixDb Tables**: Use `CreateMixDbTable`, `UpdateMixDbTable`, `CreateColumn`, etc.
 
 **Why?** MCP tools register changes in the CMS, handle migrations, broadcast updates via SignalR, invalidate cache, and maintain data consistency. Direct file edits bypass all this.
@@ -118,7 +118,7 @@ The search index covers all wiki files at once — template IDs, page slugs, Mix
 
 | Purpose | Path pattern |
 |---------|-------------|
-| Wiki / reference docs | `wwwroot/mixcontent/wiki/<topic>.md` |
+| Wiki / reference docs | `wwwroot/mixcontent/documents/wiki/<topic>.md` |
 | Site / feature build plans | `wwwroot/mixcontent/planning/<plan-name>.md` |
 | Any other AI-generated text | `wwwroot/mixcontent/<category>/<file>.md` |
 
@@ -217,7 +217,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 | "create post template" | `CreateTemplate(folderType="Posts", fileName="BlogPost.cshtml")` — **fileName MUST include `.cshtml`** |
 | "create widget template" | `CreateTemplate(folderType="Widgets", fileName="Newsletter.cshtml")` — **fileName MUST include `.cshtml`**; use `@model dynamic` |
 | "create form template" | `CreateTemplate(folderType="Forms", fileName="ContactForm.cshtml")` — **fileName MUST include `.cshtml`**; see [form-templates.md](references/form-templates.md) |
-| "create data/detail template for MixDB table" | 1. `GetMixDbBySystemName(includeColumns: true)` → confirm schema. 2. `CreateTemplate(folderType="Data", fileName="Detail.cshtml")` — `@model dynamic` + `@inject IMixDbDataService db`. 3. `UpdateMixDbTable(systemName, templateId: <id>)` to assign. See [content-creation.md](references/content-creation.md) |
+| "create data/detail template for MixDB table" | 1. `GetMixDbBySystemName(includeColumns: true)` → confirm schema. 2. `CreateTemplate(folderType="Data", fileName="Detail.cshtml")` — `@model Mix.DataSource.Models.MixDbRow` (the controller passes the loaded row; no primary re-query). Inject `@inject IMixDbDataService db` ONLY when you need related rows. 3. `UpdateMixDbTable(systemName, templateId: <id>)` to assign. See [mixdb-in-razor.md → Data-detail template contract](references/mixdb-in-razor.md) |
 | "validate / compile-check a template" | `ValidateTemplate(templateId)` after every `CreateTemplate`/`UpdateTemplate` — returns `{ success, skipped, errors:[{ line, message, code }] }`. Fix `CS*`/`RZ*` errors before creating page content. `.liquid` → `skipped:true`. Pre-flight raw markup with `ValidateTemplate(content, folderType)`. |
 | "create a page" | Verify templateId + layoutId folderTypes → `CreatePageContent` — see [content-creation.md](references/content-creation.md) |
 | "create a module" | Verify `templateId` has `folderType="Modules"` → `CreateModuleContent` |
@@ -238,7 +238,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 | "copy page layout to another page" | `CopyModuleAssociations(sourcePageId, targetPageId)` |
 | "find existing templates" | `ListTemplates(keyword, folderType)` |
 | "smart query MixDb (natural language)" | `SmartQuery(tableName, query)` — no filter JSON needed |
-| "read/write wiki docs" | `ReadTextFile`, `WriteTextFile`, `AppendToTextFile` |
+| "read/write wiki docs" | `ReadDocument` / `GenerateDocument` (`mixcore:mix-mcp-rag`) — never text-file tools (they bypass the RAG index) |
 | "test MCP connection" | `Echo(message)` |
 
 ---
@@ -268,16 +268,13 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 - ❌ Never write MixDB template code without first calling `GetMixDbBySystemName(includeColumns: true)` — field names are case-sensitive
 - ❌ Never use `@model dynamic` in a Page or Post template — both require their typed ViewModel
 - ❌ Never use a typed ViewModel in a Form template — form templates require `@model dynamic`
-- ❌ Never omit `class="frm-mixdb-ajax"` or `data-mixdb-table` from a form tag — both are mandatory; see [form-templates.md](references/form-templates.md)
-- ❌ Never put the `frm-mixdb-ajax` JavaScript handler inside a Form or Page template — it belongs in the Master layout only
-- ❌ Never post a public `frm-mixdb-ajax` form to `api/v1/rest/data-source/{dataSourceName}/table/{tableName}` (permission-checked, 401/403 for anonymous) — public forms post to `api/v1/rest/mixdb/data/{tableName}` (the `[AllowAnonymous]` `PublicMixDbDataController`), which resolves the DataSource from the table itself (no `data-mixdb-datasource` needed)
-- ❌ Never include `id`, `created_date_time`, or `created_by` fields in a form — auto-set by the server
+- ❌ Never violate the form contract — `class="frm-mixdb-ajax"` + `data-mixdb-table` mandatory; JS handler in the Master layout only; never include server auto-set fields (`id`, `created_date_time`, `created_by`). Full contract (incl. public POST endpoint): [form-templates.md](references/form-templates.md)
 - ❌ Never use `QueryRows` without a `dataSourceName` — it is required; use `QueryTable` for internal tables
 - ❌ Never use `filterJson: {"status":"Published"}` (key/value) — both `filterJson` and `filtersJson` require array format `[{"fieldName":"...","value":"...","operator":"="}]`
 - ❌ Never use `IMixDbDataServiceFactory` in Razor templates — it does not exist; use `@inject IMixDbDataService db`
 - ❌ Never use `SearchMixDbRequestModel`, `GetPagingAsync`, or `MixQueryField` in Razor templates — internal service types; use `MixDbFilter` and `GetRowsAsync`
 - ❌ **Never hardcode dynamic data in a template** — if a MixDB table exists for products, menu items, team members, etc., the template MUST load rows via `@inject IMixDbDataService db` and render them in a `@foreach` loop. Static HTML copies of database rows are always wrong: the CMS and the page diverge the moment any row is added/removed. See [mixdb-in-razor.md §NEVER HARDCODE](references/mixdb-in-razor.md) for the canonical loop + category-mapping pattern.
-- ❌ Never start a CMS task (page, module, post, template, form, MixDB table) without first reading the relevant docs from `wwwroot/mixcontent/wiki/` — skipping this causes duplicate IDs, wrong templates, and broken pages
+- ❌ Never start a CMS task (page, module, post, template, form, MixDB table) without first reading the relevant docs from `wwwroot/mixcontent/documents/wiki/` — skipping this causes duplicate IDs, wrong templates, and broken pages
 - ❌ **Never `CreateTemplate`/`UpdateTemplate` before resolving `design.md`** — read the per-site `<site-slug>/design.md` (or fall back to the global default; auto-bootstrap if missing), then generate from its tokens. Skipping it makes each template drift to a different palette/typography/spacing. See [references/design-system.md](references/design-system.md).
 - ❌ Never write generated documents outside `wwwroot/mixcontent/` — all wiki, planning, and AI-generated files belong there
 

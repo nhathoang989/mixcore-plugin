@@ -69,10 +69,10 @@ rm -f  src/apps/MixCore.Cloud.Web/wwwroot/mixcontent/cms_*.sqlite*
 rm -rf src/apps/MixCore.Cloud.Web/wwwroot/mixcontent/{templates,uploads,documents}
 cp     src/apps/MixCore.Cloud.Web/wwwroot/default-mixcontent/setting-files/*.json \
        src/apps/MixCore.Cloud.Web/wwwroot/mixcontent/setting-files/      # resets InitStatus → Blank
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://localhost:5000 \
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5000 \
   nohup dotnet run --project src/apps/MixCore.Cloud.Web --no-build > /tmp/mixrun.log 2>&1 &
 # readiness:
-for i in $(seq 1 45); do curl -sk -o /dev/null -w "%{http_code}" https://localhost:5000/init | grep -q 200 && { echo READY; break; }; sleep 2; done
+for i in $(seq 1 45); do curl -sk -o /dev/null -w "%{http_code}" http://localhost:5000/init | grep -q 200 && { echo READY; break; }; sleep 2; done
 ```
 
 The platform DB can be **SQLite** for a local install (pick SQLite at the Database step) — no Postgres needed. Drive the wizard with Playwright: Database (SQLite) → Account → AI Setup (add a real provider key, e.g. DeepSeek `base_url https://api.deepseek.com`, set a model) → Theme Setup (choose **Describe Your Site (AI)**, fill the description, optionally upload a `.txt/.md/.json` doc) → Complete → **Complete Installation & Start AI Build**. The build is dispatched only at Complete (after `InitStatus=Done`).
@@ -91,9 +91,9 @@ grep -iE "mcp|SSL|frame size|IsError|completed\." /tmp/mixrun.log | tail
 A plan turn ends in **`Incomplete`** (not `Failed`) when the budget runs out with steps still pending — this is normal for a big build. Drive it to completion by **continuing** it (each continue runs one more turn; repeat until `Completed` or `total_steps` are all done):
 
 ```bash
-JWT=$(curl -sk -X POST https://localhost:5000/api/v1/rest/auth/login -H 'Content-Type: application/json' \
+JWT=$(curl -sk -X POST http://localhost:5000/api/v1/rest/auth/login -H 'Content-Type: application/json' \
   -d '{"userName":"admin","password":"<pwd>"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['result']['accessToken'])")
-curl -sk -X POST https://localhost:5000/api/v1/ai/plans/<id>/continue -H "Authorization: Bearer $JWT"   # 202 → re-runs
+curl -sk -X POST http://localhost:5000/api/v1/ai/plans/<id>/continue -H "Authorization: Bearer $JWT"   # 202 → re-runs
 ```
 
 Then verify the produced site with **Mode A** (load `/`, the menu/list pages, check rows + console). The plan-detail page is `/p/ai/plan-detail/{id}` — but `/p` is `[Authorize]`, so an unauthenticated hit 302s to `/p/login?returnUrl=…`; sign in (admin) and the returnUrl lands you on the plan.
@@ -111,7 +111,7 @@ find . -maxdepth 2 -name "*.png" -path "*playwright*" -delete 2>/dev/null
 ## Gotchas
 
 - **Don't trust a clean build or a 200.** A page renders 200 while empty; an MCP create returns success while the row is wrong. Always assert the *content* (Mode A snapshot) AND the *data* (DB/MCP read).
-- **AI build CRUD needs HTTPS loopback** — see §B. The single most common reason a "successful install" produces an empty site is the agent's `https://localhost:5000/mcp` calls failing on an HTTP run.
+- **AI build CRUD needs HTTPS loopback** — see §B. The single most common reason a "successful install" produces an empty site is the agent's `http://localhost:5000/mcp` calls failing on an HTTP run.
 - **No `type=Home` page ⇒ no browsable root.** The completion redirect keys off this: with no Home page the wizard sends you to `/p`, not `/`. If the AI build is mid-flight, the Home page may not exist yet — continue the plan, then re-check.
 - **`/p` and `/a` are auth-gated** — an anonymous request 302s to `/p/login` (HTML), not 401. Gate-first / sign in before asserting portal content. (Same pattern as the chat-widget auth redirect.)
 - **Never build the main tree while `:5000` is live** — shared `bin/` locks/replaces DLLs and takes the app + its MCP server down. Use an isolated worktree (own `bin/obj`) and an alternate port, or stop `:5000` first.

@@ -117,7 +117,7 @@ Step 2: Create the Data template
   CreateTemplate(
     fileName: "ProductDetail.cshtml",
     folderType: "Data",             ← must be "Data"
-    content: "..."                  ← @model dynamic + @inject IMixDbDataService db
+    content: "..."                  ← @model Mix.DataSource.Models.MixDbRow (controller hands in the row)
   )
   → returns templateId (e.g. 16)
 
@@ -128,14 +128,13 @@ Step 3: Assign template to table
   )
 ```
 
-### Data template rules (see also [razor-rules.md §8](razor-rules.md))
+### Data template rules
 
-- `@model dynamic` — always, no typed ViewModel
-- The controller loads the row and passes it as `Model` — **do NOT inject `IMixDbDataService` or query the DB in the template**
-- Cast the model at the top: `var product = (MixDbRow)Model;`
-- Guard optional columns: `row.Contains("image_url")` before rendering
-- `MixDbRow.Empty` is returned (not null) when row not found — check `row.IsEmpty`
-- **Never** assume a column exists — verify via `GetMixDbBySystemName` first
+The Data-detail render path has a strict contract — the controller loads the row and hands it in as the `@model`, assigns the master layout, and renders the template as a main view. Follow the canonical **"Data-detail template contract"** in [mixdb-in-razor.md](mixdb-in-razor.md#data-detail-template-contract); the essentials:
+
+- `@model Mix.DataSource.Models.MixDbRow` — never `@model dynamic`, never a cast, never a page/post ViewModel
+- Read columns straight from the model via `Model.Get<...>` — **do NOT re-query the primary row**; `@inject IMixDbDataService` only to load *related* rows
+- **Never** assume a column exists — verify via `GetMixDbBySystemName(includeColumns: true)` first
 
 ### Linking to a data detail page
 
