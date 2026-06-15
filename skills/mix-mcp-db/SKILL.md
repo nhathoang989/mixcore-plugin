@@ -81,6 +81,13 @@ MixDB Table (MixDbTable)         — schema stored in the main CMS DB
 | `Json` / `Array` / `ArrayRadio` | Structured / multi-value |
 | `Tag` / `Color` / `Icon` / `QRCode` / `BarCode` | UI-specific |
 
+> 🚨 **CRITICAL — pick the right type for long content (the `varchar(250)` trap).**
+> `String` (and every short-string type: `EmailAddress`, `Url`, `ImageUrl`, slugs, names) migrates to **`varchar(250)`**. Inserting a longer value fails at row-create time with Postgres `22001: value too long for type character varying(250)`. For article bodies, rich HTML, descriptions, long excerpts — anything that can exceed 250 chars — use a **long-text** type: `Text`, `MultilineText`, or `Html` (these map to an unbounded `TEXT` column).
+>
+> **Verify, don't trust the request.** `create_mix_db_table` / `create_mix_db_table_from_prompt` can **coerce an unrecognized `dataType` to `String`** — a column you asked to be `Html` may land as `String(250)`. After creating a table, call `get_table_schema` (or `get_mix_db_by_system_name`) and confirm the long-text columns are actually `Text`/`Html`/`MultilineText`, not `String`.
+>
+> **Fixing a too-narrow existing column:** change the type with `update_column(id, dataType: "Text")` (or `"Html"`), then **`migrate_mix_db_table`** — widening an existing physical column requires the DROP+CREATE that `migrate` does. `repair_mix_db_table` only **adds** missing columns; it will **not** widen `varchar(250)`→`TEXT`. Because `migrate` re-creates the table it **drops all rows** — so **finalize long-text column types BEFORE seeding data.**
+
 ---
 
 ## Workflow: Create a table with known schema
