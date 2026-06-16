@@ -43,7 +43,7 @@ Common cron examples:
 - Daily at 8:00 AM: `"0 8 * * *"`
 - Every weekday at 9:00 AM: `"0 9 * * 1-5"`
 
----
+🚨 **CRITICAL RULE — cron is always UTC; default to the requester's timezone.** Flows `TriggerConfig` has **no `timeZone` field**; `ScheduledTriggerJob` evaluates every cron in **UTC**. So a clock time in the cron is a UTC clock time. When the request specifies a timezone, convert that wall-clock time to UTC for the cron. **When the request does NOT specify a timezone, interpret the requested clock time in the requester's local timezone** (e.g. the session/host timezone), convert it to UTC, and **state the conversion you made** in your reply (e.g. "09:30 ICT = 02:30 UTC → `30 2 * * *`"). Never silently store the local clock time as if it were UTC.
 
 ## Action step schemas
 

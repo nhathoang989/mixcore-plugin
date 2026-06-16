@@ -55,6 +55,8 @@ Common examples:
 
 An invalid cron is rejected by `CreateScheduledJob` / `UpdateScheduledJob` (validated server-side via `CronEvaluator`).
 
+🚨 **CRITICAL RULE — set `timeZone` to the requester's timezone; do NOT silently default to UTC.** Unlike Flows (cron-only, no tz field), a Scheduler job HAS a `timeZone` field that `CronEvaluator` honors — the cron's wall-clock time is interpreted in that zone. So **keep the cron as the literal clock time the user asked for and set `timeZone` to match**: when the request names a timezone, pass it as `timeZone`; **when the request gives NO timezone, pass the requester's local timezone** (e.g. the session/host IANA id like `Asia/Bangkok`) — not the `"UTC"` default — and state which zone you used. Leaving `timeZone` unset makes `0 8 * * *` fire at 08:00 **UTC**, which is rarely what a user who said "8am" meant.
+
 ---
 
 ## Action types & `actionConfigJson`
