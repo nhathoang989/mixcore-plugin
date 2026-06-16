@@ -28,7 +28,7 @@ CreateWorkflow(
   triggerConfigJson: '{"cron":"0 8 * * 1-5"}',
   stepsJson: '[
     {"order":1,"actionType":"HttpRequest","config":{"method":"GET","url":"https://analytics.example.com/api/daily-summary","headers":{"X-Api-Key":"your-key"}},"continueOnError":false},
-    {"order":2,"actionType":"QueuePublish","config":{"topic":"reports","action":"daily-summary","data":{"result":"{{steps.0.output}}"}},"continueOnError":false}
+    {"order":2,"actionType":"QueuePublish","config":{"topic":"reports","action":"daily-summary","data":{"result":"{{steps.0}}"}},"continueOnError":false}
   ]'
 )
 ```

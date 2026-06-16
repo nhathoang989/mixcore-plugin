@@ -68,12 +68,13 @@ Each step in `stepsJson` is `{"order":N,"actionType":"...","config":"<JSON strin
 ```json
 {
   "to": "{{payload.email}}",
+  "cc": "ops@example.com",
   "subject": "Welcome to the platform",
   "body": "Hi {{payload.name}}, your account is ready.",
   "templateId": "welcome-v1"
 }
 ```
-`templateId` is optional. `to`, `subject`, and `body` all support parameter injection.
+`templateId` and `cc` are optional. `to`, `cc`, `subject`, and `body` all support parameter injection. `to`/`cc` accept **multiple recipients** as a comma/semicolon-separated list (e.g. `a@x.com,b@y.com`). The step **fails** if the provider reports a delivery failure (e.g. SMTP not configured — blank `Smtp:Server`).
 
 ### SignalRBroadcast
 ```json
@@ -104,7 +105,7 @@ Calls an AI chat-completions endpoint (Mix.Mind by default, or any OpenAI-compat
   "system": "You are concise.",
   "model": "optional-model-id",
   "url": "https://<host>/api/mind/v1/chat/completions",
-  "apiKey": "{{steps.0.output.result.accessToken}}",
+  "apiKey": "{{steps.0.result.accessToken}}",
   "json": false
 }
 ```
@@ -112,7 +113,7 @@ Calls an AI chat-completions endpoint (Mix.Mind by default, or any OpenAI-compat
 - **`body`** (object) — a custom request body for a **non-OpenAI** endpoint (e.g. Mixcore's `POST /api/v1/ai/generate`, which takes `{fieldName, context, outputTypeHint}` and returns a bare string). When set, `prompt` is optional.
 - **`responsePath`** — dot-path to the text in the response (default `choices.0.message.content`); use **`"raw"`** when the endpoint returns a bare string.
 - **`json: true`** — instructs JSON-only output and parses it into `output.json` (tolerates ```json fences).
-- Output: `{ "content": "…", "json": <parsed if json=true> }`. Downstream: `{{steps.<n>.output.content}}` / `{{steps.<n>.output.json.<field>}}`.
+- Output: `{ "content": "…", "json": <parsed if json=true> }`. Downstream: `{{steps.<n>.content}}` / `{{steps.<n>.json.<field>}}` (no `.output` segment — see Parameter injection).
 
 > Mixcore's OpenAI-style `/api/mind/...` endpoint may be a stub on some builds; the working authenticated generator is `POST /api/v1/ai/generate` (`{fieldName, context, outputTypeHint:"json"}` → string) — call it via AskAI with `body` + `responsePath:"raw"`.
 
@@ -126,12 +127,16 @@ Use `{{placeholder}}` in any string-valued config field to inject values at run 
 |---|---|
 | `{{payload.fieldName}}` | Field from the trigger payload (webhook body, manual trigger data) |
 | `{{payload}}` | Entire trigger payload as a JSON string |
-| `{{steps.0.output.fieldName}}` | Output field from step at index 0 (0-based — **step `order:1` is index `0`**) |
-| `{{steps.0.output.result.accessToken}}` | Nested field — dot-navigate into the step's output object |
-| `{{steps.1.output}}` | Entire output of step at index 1 |
+| `{{steps.0.fieldName}}` | Output field from step at index 0 (0-based — **step `order:1` is index `0`**) |
+| `{{steps.0.result.accessToken}}` | Nested field — dot-navigate into the step's output object |
+| `{{steps.1}}` | Entire output of step at index 1 |
 | `{{email}}` | Short form — looks in payload first, then step outputs |
 
 Inject into URLs, email addresses, message bodies, headers, and nested JSON values. A placeholder that resolves to nothing is left as the literal `{{…}}` text.
+
+🚨 **There is NO `.output` segment.** The engine stores each step's output object *directly* in the `steps` array (`WorkflowEngine` does `stepOutputs.Add(result.Output)`), so you reference a field as `{{steps.<n>.<field>}}`, **not** `{{steps.<n>.output.<field>}}` (which resolves to null → the literal placeholder leaks into the config). Per action type, the step's output object is: **AskAI** → `{content, json?}` (use `{{steps.<n>.content}}`); **HttpRequest** → the parsed JSON response body itself (login → `{{steps.<n>.result.accessToken}}`); **SendEmail** → `{to}`; **QueuePublish/SignalRBroadcast** → their echoed config.
+
+🚨 **Injection is raw string replacement, NOT JSON-escaped** (`ParameterInjector.Inject` regex-replaces over the serialized config string, then re-parses it). A value containing a double-quote or a newline breaks the re-parse and fails the step. When an upstream `AskAI` step generates HTML to inject into a `SendEmail` `body`, prompt it to emit **a single line with single-quoted attributes and zero double-quote characters**.
 
 ---
 
@@ -139,11 +144,13 @@ Inject into URLs, email addresses, message bodies, headers, and nested JSON valu
 
 - **`config` is a JSON *string*, not an object** — see the 🚨 note under [Action step schemas](#action-step-schemas). The single most common `CreateWorkflow`/`UpdateWorkflow` failure.
 - **Step indices are 0-based, step `order` is 1-based** — the step with `order:1` is referenced as `{{steps.0.…}}`, `order:2` → `{{steps.1.…}}`.
-- **Outputs are wrapped in `.output`** — reference `{{steps.0.output.<field>}}`, not `{{steps.0.<field>}}`. An `HttpRequest` step's output is the parsed JSON response body, so drill into it (e.g. login → `{{steps.0.output.result.accessToken}}`).
-- **Calling an *authenticated* Mixcore endpoint from a flow:** add a first `HttpRequest` step that logs in — `POST /api/v1/rest/auth/login` with body `{"userName":"…","password":"…"}` → token at `{{steps.0.output.result.accessToken}}` — then pass it as an `AskAI` `apiKey` or an `Authorization: Bearer {{…}}` header on later steps. (Tokens are short-lived but minted fresh each run.)
+- **Outputs are NOT wrapped in `.output`** — reference `{{steps.0.<field>}}`, never `{{steps.0.output.<field>}}` (the `.output` key does not exist → resolves null → literal placeholder leaks). An `HttpRequest` step's output *is* the parsed JSON response body, so drill straight into it (e.g. login → `{{steps.0.result.accessToken}}`).
+- **Calling an *authenticated* Mixcore endpoint from a flow:** add a first `HttpRequest` step that logs in — `POST /api/v1/rest/auth/login` with body `{"userName":"…","password":"…"}` → token at `{{steps.0.result.accessToken}}` — then pass it as an `AskAI` `apiKey` or an `Authorization: Bearer {{…}}` header on later steps. (Tokens are short-lived but minted fresh each run.)
+- **`SendEmail` to many recipients:** `to` (and `cc`) accept a comma/semicolon-separated list (parsed via `InternetAddressList`). Flows has **no foreach**, so to email a dynamic audience (e.g. all `newsletter_subscriber` rows), use an `AskAI` step that outputs ONLY the comma-joined address list, then `to: {{steps.<n>.content}}`. The step **fails** if the email provider reports failure — e.g. a blank `Smtp:Server` in `setting-files/smtp.json` (configure SMTP before relying on delivery).
+- **Newsletter pattern (N items → all subscribers), no foreach:** step 1 `AskAI` → ONLY the comma-joined subscriber emails; step 2 `AskAI` → ONLY a single-line, single-quoted HTML digest of the N rows; step 3 `SendEmail` `to:{{steps.0.content}}` `body:{{steps.1.content}}`. Two independent AI outputs feed one send.
 - **Typed columns when a flow POSTs to a MixDB insert** (`/api/v1/rest/mixdb/data/{table}`): placeholder injection yields **strings**. Quoting a number/bool/timestamp value (e.g. `"category_id":"{{…}}"`, `"published_at":"{{…}}"`) can fail server-side with PostgreSQL `42804: column … is of type … but expression is of type text`. Keep typed (int/bool/timestamp) columns OUT of a flow-built insert body, or generate the row with an agentic AI step that inserts via its own tools. (Server-side type coercion for this path is being improved.)
 - **Scheduler → flow:** a Scheduler job (Webhook action) fires a flow by POSTing to the flow's webhook trigger `POST /api/v1/flows/hooks/{path}`. Build the flow with a **Webhook** trigger so both the scheduler and a manual `TriggerWorkflow` can run it.
-- **Debug a failing run** by reading `GetRunHistory` → the first `stepResults` entry with `success:false`; each entry's `output` shows what that step produced (e.g. an `AskAI` step's generated JSON), which is what later `{{steps.N.output…}}` placeholders see.
+- **Debug a failing run** by reading `GetRunHistory` → the first `stepResults` entry with `success:false`; each entry's `output` shows what that step produced (e.g. an `AskAI` step's generated JSON), which is what later `{{steps.N.<field>}}` placeholders see. If a downstream config still shows a literal `{{steps.N.…}}`, the path didn't resolve — most often a stray `.output` segment.
 
 ---
 
