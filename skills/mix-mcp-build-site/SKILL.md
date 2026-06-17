@@ -293,6 +293,8 @@ After creating the master template and at least one page that uses it, **immedia
 
 **Why this matters:** A single compilation error in the master layout breaks EVERY page. Fixing the master after creating 5+ pages means re-verifying all of them. One early browser check saves 4+ fix-and-retry cycles. See [[mixdb-razor-api-reference]] for the most common API mistakes (wrong method names, missing `@inject`/`@using` directives).
 
+> 🚨 **A master RENDERS sections — it NEVER DEFINES them.** The master must contain **zero `@section` blocks**; use `@RenderSection("Seo"/"Styles"/"Scripts", false)` only. A `@section Seo { … }` definition in a master crashes every page at *render* with `InvalidOperationException: … sections … defined but … not rendered … 'Seo'` — and `ValidateTemplate` (compile-only) does **NOT** catch it, so the Phase 2 browser/curl check is what surfaces it. Put the master's own meta inline in `<head>`; section definitions belong only in the child host view. See `mixcore:mix-mcp-cms` → `references/razor-rules.md` §5.
+
 ### `wwwroot/mixcontent/planning/phase-3-modules.md` — Module Templates & Content
 
 **Invoke `mixcore:mix-mcp-cms` skill first.**

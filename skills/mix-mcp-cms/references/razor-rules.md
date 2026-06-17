@@ -120,6 +120,8 @@ Each `@RenderSection` name must appear **exactly once**. Duplicating any section
 
 🚨 **`false` ≠ optional.** The `false` arg only tells Razor not to throw when a *child page* omits the section — the master MUST still declare `Seo`, `Styles`, and `Scripts` (each exactly once). Never describe these three as "optional sections"; `Schema` is the only optional one.
 
+🚨 **A master RENDERS sections — it NEVER DEFINES them.** Use `@RenderSection("Seo", false)`; **never** write a `@section Seo { … }` (or `@section Styles`/`@section Scripts`) **definition block** in a master. A master is the top-level layout — there's no outer layout to render a section it defines, so it crashes every page at render with `InvalidOperationException: The following sections have been defined but have not been rendered … 'Seo'`. Put the master's own meta **inline** in `<head>` (plain `<title>`/`<meta>`); section *definitions* belong only in the **child** host view/page (they fill the master's `@RenderSection` slots). ⚠️ `validate_template` compiles but does **not** render, so it will NOT catch this — the "0 `@section` blocks in a master" rule is the only guard. (Count of `@section ` in a master MUST be 0.)
+
 **Required vs optional sections (these apply to the MASTER ↔ host-view layer only):**
 | Section | Master must declare | Provided by |
 |---|---|---|

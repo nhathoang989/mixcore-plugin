@@ -134,6 +134,8 @@ The Data-detail render path has a strict contract — the controller loads the r
 
 - `@model Mix.DataSource.Models.MixDbRow` — never `@model dynamic`, never a cast, never a page/post ViewModel
 - Read columns straight from the model via `Model.Get<...>` — **do NOT re-query the primary row**; `@inject IMixDbDataService` only to load *related* rows
+
+> 🔹 **Reading MixDB rows?** `MixDbRow` has **no indexer and no `ContainsKey`** — read every field with `.Get<T>("field")` (always wrapped in `@(...)`), test existence with `.Contains("field")`, never `row["field"]` (CS0021) / `row.ContainsKey(...)` (CS1061) / `row.field`. Full rules: **mixcore:mix-mcp-cms → references/mixdb-in-razor.md "MixDbRow accessor reference".**
 - **Never** assume a column exists — verify via `GetMixDbBySystemName(includeColumns: true)` first
 
 ### Linking to a data detail page

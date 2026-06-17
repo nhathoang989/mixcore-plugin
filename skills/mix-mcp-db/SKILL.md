@@ -161,6 +161,7 @@ mcp__mixcore__create_template(
   extension: ".cshtml",
   content: "<article>...@(Model.Get<string>(\"title\"))...</article>"
 )
+
 # returns templateId, e.g. 91
 
 # 2. Assign the template (and optional master layout) to the table
@@ -170,6 +171,8 @@ mcp__mixcore__update_mix_db_table(
   layoutId: <masterLayoutId>   # optional
 )
 ```
+
+> 🔹 **Reading MixDB rows?** `MixDbRow` has **no indexer and no `ContainsKey`** — read every field with `.Get<T>("field")` (always wrapped in `@(...)`), test existence with `.Contains("field")`, never `row["field"]` (CS0021) / `row.ContainsKey(...)` (CS1061) / `row.field`. Full rules: **mixcore:mix-mcp-cms → references/mixdb-in-razor.md "MixDbRow accessor reference".**
 
 Both `create_mix_db_table` / `create_mix_db_table_from_prompt` also accept `templateId` and `layoutId`, so you can assign them at create-time if the template already exists. Leave them unset to skip the detail-view wiring entirely.
 

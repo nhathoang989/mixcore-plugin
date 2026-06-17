@@ -123,17 +123,19 @@ A `folderType="Data"` template attached to a table (via `templateId`) renders th
 - File name in **Title Case** (e.g. `FeatureDetail.cshtml`, not `feature-detail.cshtml`).
 - The master it renders under must be model-agnostic (reads `ViewData["Title"]`, never `Model.*`) — see [razor-rules.md §master rules](razor-rules.md).
 
-### `MixDbRow` is a struct — no `?.` null-conditional access
+### `MixDbRow` is a struct — no `?.`, and no `!= null` on the value itself
+
+`MixDbRow` is a value type, so `?.` on it is **CS0023** and `row != null` on a non-nullable `MixDbRow` is **CS0019**. Both `GetRowAsync(...)` and `FirstOrDefault()` on a `List<MixDbRow>` return a **non-null** `MixDbRow` (the empty `MixDbRow.Empty` / `default` when nothing matched), never `null`. Test with **`.IsEmpty`**, not `!= null`.
 
 ```cshtml
-❌  var name = category?.Get<string>("name");   // CS0023: '?' cannot be applied to MixDbRow
-❌  var id   = category?.Get<int>("id", 0) ?? 0;
+❌  var name = category?.Get<string>("name");   // CS0023: '?.' cannot be applied to MixDbRow
+❌  if (category != null) { … }                 // CS0019 when category is MixDbRow (not MixDbRow?)
 
-✅  var hasCategory = category != null && !category.IsEmpty;
-✅  var name = hasCategory ? category.Get<string>("name") : "";
+✅  var row = (await db.GetRowsAsync("...")).FirstOrDefault();   // MixDbRow (non-null)
+✅  if (!row.IsEmpty) { var name = row.Get<string>("name"); }
 ```
 
-Use `IsEmpty` (and `!= null` when the local came from `FirstOrDefault()` on a `List<MixDbRow>`) instead of `?.`.
+`!= null` is valid ONLY when the variable is explicitly declared `MixDbRow?`. For every ordinary `MixDbRow`, use `.IsEmpty` instead of `?.`.
 
 ---
 
@@ -150,6 +152,19 @@ Use `IsEmpty` (and `!= null` when the local came from `FirstOrDefault()` on a `L
 | `row.IsEmpty` | `bool` | true when `GetRowAsync` found nothing |
 
 Handles: `Nullable<T>`, enums from string or int, JToken/nested JSON, all `IConvertible` types.
+
+### 🚨 These access patterns do NOT exist on `MixDbRow` — they will NOT compile
+
+`MixDbRow` is a `readonly record struct` whose ONLY members are the methods above (plus `.Data`). It has **no indexer, no `ContainsKey`, and no dynamic/per-field properties.** The model keeps guessing these — every one fails:
+
+| ❌ Wrong (guessed) | Error | ✅ Correct |
+|---|---|---|
+| `row["name"]` | **CS0021** — `MixDbRow` has no indexer | `@(row.Get<string>("name"))` |
+| `row.ContainsKey("name")` | **CS1061** — it's `Contains`, not `ContainsKey` | `@if (row.Contains("name"))` |
+| `row.name` / `row.Name` | **CS1061** — not `dynamic`; no per-field property | `@(row.Get<string>("name"))` |
+| `row.Data["name"]` | compiles, but skips type conversion + null-safety | `@(row.Get<string>("name"))` |
+
+Read **every** field with `.Get<T>("field")` (or `.Get<T>("field", fallback)`), test existence with `.Contains("field")`, and **always wrap a value `.Get<T>()` in `@(...)`** when emitting it — a bare `@row.Get<string>("x")` mis-parses `<string>` as an HTML tag. `.Data` is the raw `IReadOnlyDictionary<string, object?>` escape hatch — prefer `.Get`/`.Contains`/`.TryGet`.
 
 ---
 
