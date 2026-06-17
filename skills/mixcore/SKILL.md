@@ -206,7 +206,7 @@ All Mixcore MCP tools follow snake_case naming. Load schemas via `ToolSearch` be
 | Posts | `create_post_content`, `list_post_contents`, `get_post_content_by_seo_name` |
 | MixDB schema | `get_tables`, `get_table_schema`, `create_mix_db_table`, `create_mix_db_table_from_prompt` |
 | MixDB columns | `add_column_to_table`, `update_table_column`, `delete_table_column`, `list_columns` |
-| MixDB rows | `create_row`, `update_row`, `delete_row`, `query_rows`, `query_table` |
+| MixDB rows | `create_row`, `update_row`, `delete_row`, `create_many`, `update_many`, `query_rows`, `query_table` |
 | Relationships | `create_relationship`, `list_relationships`, `get_relationships_by_parent_table` |
 | Smart queries | `smart_query`, `parse_smart_query` |
 | Associations | `create_page_module_association`, `create_page_post_association`, `create_module_post_association` |

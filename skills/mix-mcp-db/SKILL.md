@@ -36,6 +36,8 @@ allowed-tools:
   - mcp__mixcore__create_row
   - mcp__mixcore__update_row
   - mcp__mixcore__delete_row
+  - mcp__mixcore__create_many
+  - mcp__mixcore__update_many
   - mcp__mixcore__list_relationships
   - mcp__mixcore__get_relationship_by_id
   - mcp__mixcore__get_relationships_by_parent_table
@@ -357,7 +359,7 @@ mcp__mixcore__create_row(
 )
 ```
 
-Returns the new row `id`. No bulk insert — repeat per row.
+Returns the new row `id`. For many rows in one call, use `create_many` (below) instead of repeating.
 
 ### Update a row (partial)
 
@@ -379,6 +381,32 @@ mcp__mixcore__delete_row(
   id: 1
 )
 ```
+
+### Bulk insert / update
+
+`create_many` and `update_many` write a whole JSON **array** in one call. Rows process
+**independently** — a failure on one row does NOT roll back the others; the response reports
+`createdCount`/`updatedCount`, `failedCount`, and per-row results/errors keyed by array `index`.
+`dataSourceName` is optional, same rule as the single-row tools.
+
+**Bulk insert** — `rowsJson` is an array of row objects:
+```
+mcp__mixcore__create_many(
+  tableName: "products",
+  rowsJson: '[{"name":"Widget","price":9.99},{"name":"Gadget","price":4.50}]'
+)
+```
+
+**Bulk update** — `updatesJson` is an array of objects, each REQUIRING a positive integer `id`
+plus the columns to change (the `id` identifies the row, it is not written as a column):
+```
+mcp__mixcore__update_many(
+  tableName: "products",
+  updatesJson: '[{"id":1,"price":9.99},{"id":2,"status":"Active"}]'
+)
+```
+
+There is no bulk delete — call `delete_row` per row.
 
 ---
 
