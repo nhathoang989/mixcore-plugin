@@ -98,24 +98,49 @@ Each step in `stepsJson` is `{"order":N,"actionType":"...","config":"<JSON strin
 Publishes a message to the in-process queue. Another subscriber picks it up.
 
 ### AskAI
-Calls an AI chat-completions endpoint (Mix.Mind by default, or any OpenAI-compatible endpoint) and returns the reply, so a flow can ask the AI to generate or transform data mid-run.
+**Agent-backed** (since #280) — runs the same full AI agent the admin helpdesk uses, carrying the whole MCP tool-belt. So ONE AskAI step can both **generate** content and **act** on it (e.g. read a table, fetch a URL, insert MixDB rows) from a single natural-language prompt — no separate login/HttpRequest/insert steps. Tokens stream live to the flow-detail UI (`FlowsHub`) as the agent works. Owned by **mix.ai**, not the Flows project (mix.ai → Flows dependency).
 ```json
 {
-  "prompt": "Write a one-line summary of: {{payload.text}}",
-  "system": "You are concise.",
-  "model": "optional-model-id",
-  "url": "https://<host>/api/mind/v1/chat/completions",
-  "apiKey": "{{steps.0.result.accessToken}}",
-  "json": false
+  "prompt": "Read table 'news_article', fetch https://techcrunch.com/feed/, insert any new articles, then reply with the inserted titles.",
+  "sessionId": "optional-conversation-id",
+  "model": "optional-model-id"
 }
 ```
-- `prompt` (or `body`) is required. `url` falls back to config `Flows:AskAI:Url`; `apiKey` → `Flows:AskAI:ApiKey` (sent as `Authorization: Bearer`).
-- **`body`** (object) — a custom request body for a **non-OpenAI** endpoint (e.g. Mixcore's `POST /api/v1/ai/generate`, which takes `{fieldName, context, outputTypeHint}` and returns a bare string). When set, `prompt` is optional.
-- **`responsePath`** — dot-path to the text in the response (default `choices.0.message.content`); use **`"raw"`** when the endpoint returns a bare string.
-- **`json: true`** — instructs JSON-only output and parses it into `output.json` (tolerates ```json fences).
-- Output: `{ "content": "…", "json": <parsed if json=true> }`. Downstream: `{{steps.<n>.content}}` / `{{steps.<n>.json.<field>}}` (no `.output` segment — see Parameter injection).
+- `prompt` is required. `sessionId` and `model` are optional. **No `url` / `apiKey` / `body` / `json` / `responsePath`** — those were the old HTTP handler and no longer exist.
+- Tools run **auto-approved** (unattended; approval-gated tools execute without a human in the loop) and are tenant-scoped, so the agent can only touch the run's own tenant.
+- Output: `{ "content": "<final answer>", "planId"?: "…" }`. Downstream: `{{steps.<n>.content}}` (no `.output` segment — see Parameter injection).
 
-> Mixcore's OpenAI-style `/api/mind/...` endpoint may be a stub on some builds; the working authenticated generator is `POST /api/v1/ai/generate` (`{fieldName, context, outputTypeHint:"json"}` → string) — call it via AskAI with `body` + `responsePath:"raw"`.
+> The AskAI agent owns tool selection: describe the goal, not the HTTP calls. To pin an exact tool + arguments with no agent reasoning, use **CallMcpTool** instead.
+
+### CallMcpTool
+Invokes a **single named MCP tool** directly — no agent loop. Use when the flow already knows exactly which tool and arguments to run (`AskAI` is for "reason about which tool(s) to call"). Owned by **mix.ai**.
+```json
+{
+  "tool": "create_row",
+  "arguments": { "tableName": "news_article", "data": { "title": "{{steps.0.content}}" } }
+}
+```
+- `tool` (required) — snake_case MCP tool name. `arguments` (object) — passed verbatim; `{{steps.N.field}}` / `{{payload.x}}` placeholders inside are resolved before the tool runs.
+- The run's **tenant is stamped into the `tenantId` argument**, overriding any value in config — a flow can never reach across tenants.
+- Output: the tool's JSON result `{ ...toolResult }`, or `{ "raw": "<text>" }` for a non-JSON result.
+
+### SendSocialMessage
+Sends a message over a social channel — one action, swappable backend (like Mix.Mind). The `provider` key picks the channel; **Telegram** ships today (Zalo, FB Messenger, … as more `ISocialMessageProvider`s register — no engine change).
+```json
+{
+  "provider": "telegram",
+  "botToken": "<BotFather token>",
+  "chatId": "5003738008",
+  "text": "📰 New posts:\n{{steps.0.content}}",
+  "parseMode": "HTML",
+  "disableWebPagePreview": true
+}
+```
+- Telegram config: `botToken`, `chatId` (numeric id, `@channelusername`, or a placeholder), `text` all required; `parseMode` (`HTML`/`Markdown`/`MarkdownV2`) and `disableWebPagePreview` (bool) optional. The bot token lives in the step config (visible in the workflow definition; only ever placed in the request URL, never logged).
+- The step **fails** (not false-success) when the channel reports an error, so a message that never sent does not read as Succeeded. Set `continueOnError:true` if a delivery failure should not abort the run.
+
+### RunScript
+**Not available** in this version — `ActionType.RunScript` is a Phase 3 stub (JS sandbox) and any RunScript step fails immediately with `"RunScript action is not available in this version"`. Don't author flows that depend on it yet.
 
 ---
 
@@ -134,7 +159,7 @@ Use `{{placeholder}}` in any string-valued config field to inject values at run 
 
 Inject into URLs, email addresses, message bodies, headers, and nested JSON values. A placeholder that resolves to nothing is left as the literal `{{…}}` text.
 
-🚨 **There is NO `.output` segment.** The engine stores each step's output object *directly* in the `steps` array (`WorkflowEngine` does `stepOutputs.Add(result.Output)`), so you reference a field as `{{steps.<n>.<field>}}`, **not** `{{steps.<n>.output.<field>}}` (which resolves to null → the literal placeholder leaks into the config). Per action type, the step's output object is: **AskAI** → `{content, json?}` (use `{{steps.<n>.content}}`); **HttpRequest** → the parsed JSON response body itself (login → `{{steps.<n>.result.accessToken}}`); **SendEmail** → `{to}`; **QueuePublish/SignalRBroadcast** → their echoed config.
+🚨 **There is NO `.output` segment.** The engine stores each step's output object *directly* in the `steps` array (`WorkflowEngine` does `stepOutputs.Add(result.Output)`), so you reference a field as `{{steps.<n>.<field>}}`, **not** `{{steps.<n>.output.<field>}}` (which resolves to null → the literal placeholder leaks into the config). Per action type, the step's output object is: **AskAI** → `{content, planId?}` (use `{{steps.<n>.content}}`); **CallMcpTool** → the tool's JSON result (drill straight in, e.g. `{{steps.<n>.id}}`); **HttpRequest** → the parsed JSON response body itself (login → `{{steps.<n>.result.accessToken}}`); **SendEmail** → `{to}`; **SendSocialMessage** → the channel's API response (Telegram `{ok, result}`); **QueuePublish/SignalRBroadcast** → their echoed config.
 
 🚨 **Injection is raw string replacement, NOT JSON-escaped** (`ParameterInjector.Inject` regex-replaces over the serialized config string, then re-parses it). A value containing a double-quote or a newline breaks the re-parse and fails the step. When an upstream `AskAI` step generates HTML to inject into a `SendEmail` `body`, prompt it to emit **a single line with single-quoted attributes and zero double-quote characters**.
 
@@ -145,7 +170,7 @@ Inject into URLs, email addresses, message bodies, headers, and nested JSON valu
 - **`config` is a JSON *string*, not an object** — see the 🚨 note under [Action step schemas](#action-step-schemas). The single most common `CreateWorkflow`/`UpdateWorkflow` failure.
 - **Step indices are 0-based, step `order` is 1-based** — the step with `order:1` is referenced as `{{steps.0.…}}`, `order:2` → `{{steps.1.…}}`.
 - **Outputs are NOT wrapped in `.output`** — reference `{{steps.0.<field>}}`, never `{{steps.0.output.<field>}}` (the `.output` key does not exist → resolves null → literal placeholder leaks). An `HttpRequest` step's output *is* the parsed JSON response body, so drill straight into it (e.g. login → `{{steps.0.result.accessToken}}`).
-- **Calling an *authenticated* Mixcore endpoint from a flow:** add a first `HttpRequest` step that logs in — `POST /api/v1/rest/auth/login` with body `{"userName":"…","password":"…"}` → token at `{{steps.0.result.accessToken}}` — then pass it as an `AskAI` `apiKey` or an `Authorization: Bearer {{…}}` header on later steps. (Tokens are short-lived but minted fresh each run.)
+- **Calling an *authenticated* Mixcore endpoint from a flow:** add a first `HttpRequest` step that logs in — `POST /api/v1/rest/auth/login` with body `{"userName":"…","password":"…"}` → token at `{{steps.0.result.accessToken}}` — then pass it as an `Authorization: Bearer {{…}}` header on later `HttpRequest` steps. (Tokens are short-lived but minted fresh each run.) For Mixcore data work, prefer an `AskAI` or `CallMcpTool` step instead — both run tenant-scoped through the MCP tool-belt and need no login step.
 - **`SendEmail` to many recipients:** `to` (and `cc`) accept a comma/semicolon-separated list (parsed via `InternetAddressList`). Flows has **no foreach**, so to email a dynamic audience (e.g. all `newsletter_subscriber` rows), use an `AskAI` step that outputs ONLY the comma-joined address list, then `to: {{steps.<n>.content}}`. The step **fails** if the email provider reports failure — e.g. a blank `Smtp:Server` in `setting-files/smtp.json` (configure SMTP before relying on delivery).
 - **Newsletter pattern (N items → all subscribers), no foreach:** step 1 `AskAI` → ONLY the comma-joined subscriber emails; step 2 `AskAI` → ONLY a single-line, single-quoted HTML digest of the N rows; step 3 `SendEmail` `to:{{steps.0.content}}` `body:{{steps.1.content}}`. Two independent AI outputs feed one send.
 - **Typed columns when a flow POSTs to a MixDB insert** (`/api/v1/rest/mixdb/data/{table}`): placeholder injection yields **strings**. Quoting a number/bool/timestamp value (e.g. `"category_id":"{{…}}"`, `"published_at":"{{…}}"`) can fail server-side with PostgreSQL `42804: column … is of type … but expression is of type text`. Keep typed (int/bool/timestamp) columns OUT of a flow-built insert body, or generate the row with an agentic AI step that inserts via its own tools. (Server-side type coercion for this path is being improved.)
@@ -195,7 +220,7 @@ CreateWorkflow(
 - **`triggerConfigJson` in UpdateWorkflow**: pass `null` to keep existing config, or pass the full JSON to replace it — never pass `"{}"` if you want to preserve a Webhook path or Schedule cron.
 - **`isActive` in UpdateWorkflow**: always pass the current `isActive` value explicitly when updating other fields — the default `true` will re-activate a workflow you deliberately disabled.
 - **`stepsJson`** must be a valid JSON array string, even for zero steps (`"[]"`).
-- **`actionType` strings** are case-sensitive: `HttpRequest`, `SendEmail`, `SignalRBroadcast`, `QueuePublish`, `AskAI`.
+- **`actionType` strings** are case-sensitive: `HttpRequest`, `SendEmail`, `SignalRBroadcast`, `QueuePublish`, `AskAI`, `CallMcpTool`, `SendSocialMessage`. (`RunScript` exists but is a Phase 3 stub that always fails.)
 - **`TriggerWorkflow`** is async — it returns `{queued:true}` immediately. Use `GetRunHistory` to poll for the result.
 - **`DeleteWorkflow`** requires `confirm:"YES"` and is irreversible.
 - **`CancelRun`** must be called with a *run* GUID (from `GetRunHistory`), not a *workflow* GUID.

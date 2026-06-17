@@ -66,7 +66,11 @@ system-prompts/
     │   └── infrastructure-providers.md
     ├── reference/                     # CMS-audience reference (distinct from developer/)
     │   ├── mix-cms-reference.md       # enums, folder types, status, query operators
-    │   ├── mcp-tools-catalog.md       # complete 700+ line tool catalog (≠ developer/mcp-tools-reference.md authoring doc)
+    │   ├── mcp-tools-catalog.md       # ORCHESTRATOR INDEX — Available Tools map + links to mcp-tools/ detail files (≠ developer/mcp-tools-reference.md authoring doc)
+    │   ├── mcp-tools/                  # per-tool-group detail files w/ full param schemas
+    │   │   ├── datasource-schema.md · datasource-data.md · rag-search.md · fetch-url.md · vault-upload.md
+    │   │   ├── text-file.md · cms-pages.md · cms-modules.md · page-module.md · templates.md
+    │   │   └── scheduler.md · service-discovery.md · flows.md
     │   └── cms-csharp-extension-guide.md  # CMS C# extension guide (≠ developer/developer-guide.md cloud-module guide)
     ├── templates/
     │   ├── razor-syntax-guidelines.md
@@ -134,7 +138,8 @@ wiki/
 | `plugins/mixcore/skills/mixdev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
 | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (coding standards, EF patterns) |
 | `plugins/mixcore/skills/mix-dev-module/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (module skeleton, controller/service base-class signatures) |
-| `plugins/mixcore/skills/mix-mcp-rag/SKILL.md` | `system-prompts/instructions/reference/mcp-tools-catalog.md` (RAGSearchTool section — wiki document CRUD API + tenant-scoped paths) and `system-prompts/instructions/start-here.md` (Wiki-First Rule) |
+| `plugins/mixcore/skills/mix-mcp-rag/SKILL.md` | `system-prompts/instructions/reference/mcp-tools/rag-search.md` (RAGSearchTool — wiki document CRUD API + tenant-scoped paths) and `system-prompts/instructions/start-here.md` (Wiki-First Rule) |
+| `plugins/mixcore/skills/mix-mcp-flows/SKILL.md` *(system-prompts side)* | `system-prompts/instructions/reference/mcp-tools/flows.md` (Flows action types + parameter injection — keep in sync with `src/cloud/MixCore.Cloud.Flows/README.md`) |
 | `system-prompts/instructions/start-here.md` | `plugins/mixcore/skills/mixcore/SKILL.md` (routing rules, checklist) |
 | `system-prompts/instructions/developer/developer-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` and `plugins/mixcore/skills/mixdev/SKILL.md` |
 | `system-prompts/instructions/developer/mcp-tools-reference.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/references/` (MCP tool authoring) |
