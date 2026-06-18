@@ -78,7 +78,7 @@ function send(message) {
     if (busy || !message.trim()) return;
     busy = true;
     sid = sid || crypto.randomUUID();
-    hub.invoke('AskAI', message, sid, null, null)
+    hub.invoke('AskAI', message, sid, null, null, null)
        .catch(function (e) { /* show error */ busy = false; });
 }
 ```
@@ -191,7 +191,7 @@ function send(message) {
     sid = sid || crypto.randomUUID();
     history.push({ role: 'user', text: message, ts: Date.now() });
     persistHistory();
-    hub.invoke('AskAI', message, sid, null, null)
+    hub.invoke('AskAI', message, sid, null, null, null)
        .catch(function () { busy = false; });
 }
 
@@ -331,7 +331,7 @@ CreateTemplate(
 
 Include in a master layout before `@await RenderSectionAsync("Scripts", false)`:
 ```cshtml
-@await Html.PartialAsync("../Widgets/ai-chat-widget.cshtml")
+@await Html.PartialAsync("../Widgets/AIChatWidget.cshtml")
 @await RenderSectionAsync("Scripts", false)
 </body>
 </html>
