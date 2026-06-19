@@ -86,6 +86,70 @@ Never filter on the display name ("Hero Banner")                                
 
 ---
 
+## 🚨 Update Workflow: Page-Module Template Consistency
+
+When you **update a page template** (via `UpdateTemplate`) that renders linked modules, **also check the linked module templates** for consistency. The page template's wrapper markup, CSS classes, grid structure, and expected module output must match what the module templates actually produce.
+
+### Why this matters
+
+A page template and its linked modules form a **coupled rendering system**:
+- The page template defines the container layout (grid columns, section wrappers, spacing, responsive breakpoints)
+- Each module template produces HTML that slots into those containers
+- If the page template changes its expected DOM structure but module templates don't adjust, the rendering breaks (misaligned grids, broken wrappers, CSS class mismatches)
+
+### When to apply
+
+| Trigger | Action |
+|---|---|
+| Update page template that renders `Model.Modules` (all-modules loop or specific `SystemName` lookup) | Review **every linked module's template** — verify the module's output HTML still fits the page's new container structure |
+| Update a module template's output HTML/CSS | Review **every page template that renders this module** — verify the page's wrapper/container is compatible |
+| Change CSS classes or grid structure in a page template's module wrapper | Check module templates for class name dependencies |
+| Change responsive breakpoints in a page template | Check module templates for hardcoded responsive assumptions |
+
+### Workflow
+
+```
+Step 1: Identify linked modules
+  ListPageModuleAssociations(pageId) or GetPageNavigationTree(pageId)
+  → note each module's templateId
+
+Step 2: Read each linked module's template
+  GetTemplate(id: {moduleTemplateId})
+  → understand the current HTML output, CSS classes, and structure
+
+Step 3: After updating the page template, verify compatibility
+  - Do the page's wrapper CSS classes match what modules expect?
+  - Does the page's grid structure (column count, gap) work with module output?
+  - Are responsive breakpoints consistent between page and module templates?
+  - If the page changed from all-modules-loop to specific SystemName lookups, do the names still match?
+
+Step 4: Update module templates if needed
+  UpdateTemplate(id: {moduleTemplateId}, content: "...")
+  → then ValidateTemplate on each changed module template
+```
+
+### Example
+
+```text
+Scenario: Updating a Home page template's feature grid from 3-column to 4-column
+
+Before:
+  <div class="grid grid-cols-3 gap-4">  ← page template
+    @foreach (var m in Model.Modules) { <partial name="@m.TemplateFilePath" model="m" /> }
+  </div>
+
+After:
+  <div class="grid grid-cols-4 gap-6">  ← page template changed
+    @foreach (var m in Model.Modules) { <partial name="@m.TemplateFilePath" model="m" /> }
+  </div>
+
+Check: The feature-card module template may have hardcoded "aspect-ratio: 4/3" or "max-width: 300px"
+that worked for 3-column but breaks in 4-column — update the module template too.
+```
+
+> **This rule applies to `UpdateTemplate` on Page templates only.** `CreateTemplate` on a new page template already implies you're building fresh module templates; the consistency check is inherent in the build phase order (modules before pages, per the Phase-Based Development table below).
+
+---
 ## Phase-Based Website Development
 
 | Phase | Description | MCP Tools |

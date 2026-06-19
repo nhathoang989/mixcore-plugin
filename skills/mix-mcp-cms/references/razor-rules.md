@@ -202,13 +202,27 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
 
 ---
 
-## 7. Module rendering in page templates
+## 7. 🚨 Module rendering in page templates — MUST use `Html.PartialAsync(md.TemplateFilePath, md)`
 
-### Pattern 1: Render all modules dynamically (recommended for any page type)
+🚨 **CRITICAL RULE:** When rendering a page's modules, you MUST follow this exact pattern. `module.TemplateFilePath` is already a leading-slash absolute path (e.g. `/Templates/MyTheme/Header.cshtml`) set by the content handlers — pass it directly to `Html.PartialAsync`, never prefix `"../"` and never use `module.Template.FilePath` (the rendering `ModuleContentViewModel` has no `Template` nav property).
 
 ```cshtml
-@model Mix.Rendering.ViewModels.PageContentViewModel
+@if (Model.Modules != null)
+{
+    foreach (var md in Model.Modules)
+    {
+        @await Html.PartialAsync(md.TemplateFilePath, md)
+    }
+}
+```
 
+🚨 **When you update a page template that renders modules, also check the linked module templates.** The page template's wrapper markup (grid, spacing, responsive breakpoints, CSS classes) must be compatible with each module template's output. A change to the page's container structure may require corresponding updates to module templates. See [content-creation.md → Update Workflow](content-creation.md).
+
+### Recommended: add ordering and error guards
+
+The minimal pattern above is the required core. For production pages, prefer adding `OrderBy` and a `try-catch` so one broken module doesn't crash the whole page:
+
+```cshtml
 @if (Model.Modules != null && Model.Modules.Any())
 {
     @foreach (var module in Model.Modules.OrderBy(m => m.Priority))
@@ -216,7 +230,7 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
         <div class="module-section" data-module-id="@module.Id">
             @try
             {
-                <partial name="@module.TemplateFilePath" model="module" />
+                @await Html.PartialAsync(module.TemplateFilePath, module)
             }
             catch (Exception ex)
             {
@@ -230,9 +244,7 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
 }
 ```
 
-The try-catch ensures a broken module doesn't crash the whole page. Always wrap module renders in try-catch. `module.TemplateFilePath` is already a leading-slash absolute path (`/Templates/.../X.cshtml`) — there is no `module.Template` nav property.
-
-### Pattern 2: Render a specific module by system name
+### Pattern: Render a specific module by system name
 
 `PageContentViewModel` exposes only `List<ModuleContentViewModel>? Modules` — there is **no** `GetModule(...)` method. Select by `SystemName` with LINQ:
 
