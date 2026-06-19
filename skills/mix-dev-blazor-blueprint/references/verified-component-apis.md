@@ -146,6 +146,74 @@ Present: `grid-cols-3`, `lg:grid-cols-3`, `lg:grid-cols-4`, `md:grid-cols-2`, `s
   `_CloudLayout.cshtml`), e.g. `@media (min-width:640px){ .sm\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))} }`.
 - Verify in-browser: `getComputedStyle(grid).gridTemplateColumns`.
 
+### Arbitrary Tailwind values never emit — use `cloud.css` instead
+
+**Any `[arbitrary-value]` Tailwind class silently does nothing.** This includes:
+- Width/height: `w-[98vw]`, `max-w-[60rem]`, `h-[90vh]`, `max-h-[90vh]`
+- Overflow: `overflow-hidden` (as an arbitrary `[overflow:hidden]`)
+- Text wrapping: `[overflow-wrap:anywhere]`, `[word-break:break-all]`, `[word-break:break-word]`
+- Grid: `grid-cols-[120px_1fr]`, `min-w-[200px]`
+
+**Workaround:** define the rule as a **CSS class** in `cloud.css` with `!important` to override
+BlazorBlueprint's default `max-w-lg`/`max-h` on dialogs:
+
+```css
+/* cloud.css */
+.audit-detail-dialog { width: 98vw !important; max-width: 60rem !important; max-height: 90vh !important; overflow: hidden !important; }
+.audit-detail-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-height: 24rem; overflow: auto; }
+```
+
+Then reference the class: `<BbDialogContent Class="audit-detail-dialog flex flex-col gap-0 p-0" ...>`.
+See `AuditLogSection.razor` for the canonical pattern.
+
+### `BbDialog`: use `ShowClose="false"` when the header has its own X
+
+`BbDialogContent` renders a **built-in close button** (an X in the top-right) by default. If you
+build a custom header with your own `<BbDialogClose>` X button, set `ShowClose="false"` on
+`BbDialogContent` — otherwise the dialog has **two close icons**:
+
+```razor
+<BbDialogContent Class="..." ShowClose="false">
+    <BbDialogHeader>
+        <div class="flex items-start justify-between gap-4">
+            <BbDialogTitle>Title</BbDialogTitle>
+            <BbDialogClose AsChild>
+                <BbButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon">
+                    <LucideIcon Name="x" class="h-4 w-4" />
+                </BbButton>
+            </BbDialogClose>
+        </div>
+    </BbDialogHeader>
+    @* …body (no BbDialogFooter needed — the X is the sole close)… *@
+</BbDialogContent>
+```
+
+### Flexbox text-wrapping: add `min-w-0` to the container chain
+
+In a flex column layout, flex children default to `min-width: auto` (content-based), so they
+expand to fit their longest child rather than constraining it. `max-w-full` on a `<pre>` is
+ineffective because the parent keeps growing. Add `min-w-0` to every flex container in the chain
+from the constrained ancestor down to the code block:
+
+```razor
+@* ❌ Wrong — <pre> overflows because its ancestors have min-width:auto *@
+<div class="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">       @* missing min-w-0 *@
+    <div class="flex flex-col gap-1">
+        <pre class="max-w-full">...long unbroken JSON line...</pre>
+    </div>
+</div>
+
+@* ✅ Right — min-w-0 on the constrained ancestor lets flex children shrink *@
+<div class="flex flex-col gap-3 overflow-y-auto flex-1 min-h-0 min-w-0">  @* <— min-w-0 here *@
+    <div class="flex flex-col gap-1 min-w-0">                              @* <— and here *@
+        <pre class="rounded-md border bg-muted/40 p-3 text-xs overflow-auto whitespace-pre-wrap max-h-96">@Pretty(p.Value)</pre>
+    </div>
+</div>
+```
+
+For simpler scalar text (not in a `<pre>`), use Tailwind's native `break-all` instead of
+arbitrary-wrap utilities: `<span class="text-sm break-all">@Scalar(p.Value)</span>`.
+
 ## Component parameter names are validated at **render**, not build
 
 Blazor binds component parameters by reflection at render time, so passing a parameter the component
