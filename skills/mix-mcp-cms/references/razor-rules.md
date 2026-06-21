@@ -53,16 +53,20 @@ Double `@@` applies **only** to CSS at-rules (and literal `@` in CDN / scoped-np
 
 ---
 
-## 3. HTML content rendering
+## 3. Content rendering — semantic HTML only
+
+The `content` and `excerpt` fields are **semantic HTML** — structure tags (`<p>`, `<a href>`, `<strong>`, `<em>`, `<ul>`, `<li>`, `<h2>`, `<br>`) are fine. Never put `style`/`class` attributes, `<style>`/`<script>` blocks, JS, or CSS in content fields. Presentation belongs in the template.
 
 ```cshtml
-✅  @Html.Raw(Model.Content)    — for trusted CMS HTML
-✅  @Model.Title                — plain text, auto-encoded (safe)
-✅  @Json.Serialize(Model.Data) — for JS contexts
-✅  @Url.Encode(searchTerm)     — for URL parameters
+✅  @Html.Raw(Model.Content)      — renders semantic HTML tags correctly
+✅  @Model.Title                  — plain text, auto-encoded (safe)
+✅  @Html.Raw(Model.Excerpt)      — renders semantic HTML tags correctly
+✅  @Json.Serialize(Model.Data)   — for JS contexts
+✅  @Url.Encode(searchTerm)       — for URL parameters
 
-❌  @Model.Content              — won't render tags (encodes < and >)
-❌  @Html.Raw(userInput)        — XSS risk with user-submitted content
+❌  @Model.Content                — encodes tags (won't render <p>, <a>, etc.)
+❌  @Html.Raw("<script>…</script>")  — never put scripts in content fields
+❌  <p class="foo" style="…">     — never put class/style attributes in content fields
 ```
 
 ⚠️ **`@Json.Serialize` camelCases keys.** ASP.NET Core's `IJsonHelper` lowercases PascalCase property names by default (`Title` → `title`, `Facebook` → `facebook`), so inline JS that reads PascalCase keys will break. Use a case-insensitive read, lowercase/snake_case keys, or serialize a `Dictionary`/anonymous object with the exact keys you want.

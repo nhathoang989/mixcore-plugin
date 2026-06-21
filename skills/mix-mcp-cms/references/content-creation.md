@@ -57,7 +57,7 @@ ListTemplates(folderType: "Masters")  → find existing master layouts
 ```
 
 Rules:
-- `content` and `excerpt` fields are **HTML only** — never CSHTML (`@Model.Title` etc.)
+- `content` and `excerpt` fields are **semantic HTML only** — structure tags (`<p>`, `<a>`, `<strong>`, `<em>`, `<ul>`, `<h2>`, etc.) are fine. Never put `style`/`class` attributes, `<style>`/`<script>` blocks, JS, or CSHTML in these fields. All presentation belongs in the template (`.cshtml`). Render with `@Html.Raw(Model.Content)` so tags aren't encoded.
 - `templateId: null` is valid (content renders without a template wrapper)
 - `layoutId: null` is valid (page/post renders without a master layout)
   - With `layoutId: null` the **page template is the entire response** — `@RenderBody()` is bypassed and no site nav/footer/widgets wrap it. For a standalone page (embedded SPA, admin/portal), make the Page template a full `<!DOCTYPE html>…</html>` document (still starting with `@model Mix.Rendering.ViewModels.PageContentViewModel`). For a role-guarded admin portal, see `system-prompts/instructions/workflows/admin-portal.md`.

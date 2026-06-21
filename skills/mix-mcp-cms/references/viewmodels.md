@@ -1,9 +1,10 @@
 # Template ViewModel Properties
 
-The strongly-typed model available in each template type, by `folderType`. Always use
-`@Html.Raw()` for HTML fields (`Content`, `Excerpt`). Page and Post templates **require**
-their typed ViewModel (`@model …`); Module templates may use the typed model or `@model dynamic`;
-Widget and Form templates use `@model dynamic`.
+The strongly-typed model available in each template type, by `folderType`. `Content` and
+`Excerpt` hold **semantic HTML** (structure tags only — no `style`/`class`/`<script>`/`<style>`).
+Always render with `@Html.Raw(Model.Content)` / `@Html.Raw(Model.Excerpt)`. Page and Post
+templates **require** their typed ViewModel (`@model …`); Module templates may use the typed
+model or `@model dynamic`; Widget and Form templates use `@model dynamic`.
 
 | folderType | `@model` | Typed ViewModel |
 |---|---|---|
@@ -23,8 +24,8 @@ Widget and Form templates use `@model dynamic`.
 |---|---|---|
 | `Model.Id` | `int` | Page content ID |
 | `Model.Title` | `string` | Page title |
-| `Model.Content` | `string` | **HTML** — always `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Short description — `@Html.Raw(Model.Excerpt)` |
+| `Model.Content` | `string` | **Semantic HTML** — always `@Html.Raw(Model.Content)`. No `style`/`class`/`<script>`/`<style>`. |
+| `Model.Excerpt` | `string?` | Short description, semantic HTML — `@Html.Raw(Model.Excerpt)`. |
 | `Model.SeoName` | `string` | URL slug |
 | `Model.Modules` | `List<ModuleContentViewModel>` | Associated modules (see [razor-rules.md](razor-rules.md) §7) |
 | `Model.LastModified` | `DateTime?` | Use null-conditional: `Model.LastModified?.ToString(...)` |
@@ -42,8 +43,8 @@ Widget and Form templates use `@model dynamic`.
 |---|---|---|
 | `Model.Id` | `int` | Post ID |
 | `Model.Title` | `string` | Post title |
-| `Model.Content` | `string` | **HTML** — always `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Teaser — `@Html.Raw(Model.Excerpt)` |
+| `Model.Content` | `string` | **Semantic HTML** — always `@Html.Raw(Model.Content)`. No `style`/`class`/`<script>`/`<style>`. |
+| `Model.Excerpt` | `string?` | Teaser, semantic HTML — `@Html.Raw(Model.Excerpt)`. |
 | `Model.SeoName` | `string` | URL slug |
 | `Model.CreatedDateTime` | `DateTime` | Creation date — always present |
 | `Model.PublishedDateTime` | `DateTime?` | Publication date |
@@ -61,8 +62,8 @@ Widget and Form templates use `@model dynamic`.
 | `Model.Id` | `int` | Module ID |
 | `Model.Title` | `string` | Module title |
 | `Model.SystemName` | `string` | Unique slug — filter `page.Modules` by this value (e.g. `Modules?.FirstOrDefault(m => m.SystemName == "x")`); there is no `Model.GetModule()` |
-| `Model.Content` | `string` | **HTML** — `@Html.Raw(Model.Content)` |
-| `Model.Excerpt` | `string?` | Short HTML — `@Html.Raw(Model.Excerpt)` |
+| `Model.Content` | `string` | **Semantic HTML** — render with `@Html.Raw(Model.Content)`. No `style`/`class`/`<script>`/`<style>`. |
+| `Model.Excerpt` | `string?` | Short semantic HTML — `@Html.Raw(Model.Excerpt)`. |
 | `Model.SeoName` | `string` | URL slug |
 | `Model.Priority` | `int` | Display order |
 | `Model.ClassName` | `string` | Optional CSS wrapper class |

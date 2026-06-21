@@ -217,8 +217,7 @@ Query MixDb tables using natural language:
 Each template type exposes a strongly-typed `Model` (Page/Post/Module) or `@model dynamic`
 (Widget/Form/Master/Data). The full per-type property tables, the `@model` matrix, and the
 Widget/Form notes live in **[references/viewmodels.md](references/viewmodels.md)** — load it before
-writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fields
-(`Content`, `Excerpt`).
+writing any Page, Post, Module, or Widget template. `Content`/`Excerpt` hold semantic HTML — always render with `@Html.Raw(Model.Content)` / `@Html.Raw(Model.Excerpt)`.
 
 ---
 
@@ -265,7 +264,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 - ❌ **Never edit template or content files directly** — use `CreateTemplate`, `UpdateTemplate`, `CreatePageContent`, `UpdatePageContent`. Direct edits bypass CMS cache invalidation and SignalR broadcasts.
 - ❌ **Never browser-verify a `.cshtml` template before `ValidateTemplate` returns `success:true`** — server-side compilation catches `CS1061`/`CS0234`/`CS1503`/`RZ*` errors in ~1s; don't spend a create-page → navigate → read-500 → fix loop on errors a compile-check would have surfaced.
 - ❌ **Never pass `fileName` without the `.cshtml` extension to `CreateTemplate`** — the CMS stores `FileName` exactly as passed and builds `TemplateFilePath` from it. Missing extension → template not found at runtime. Always: `fileName: "HomePage.cshtml"` ✅ Never: `fileName: "HomePage"` ❌
-- ❌ Never use `@Model.Content` — always `@Html.Raw(Model.Content)`
+- ❌ Never put `style`/`class` attributes or `<style>`/`<script>` blocks in `content`/`excerpt` — these fields are **semantic HTML only** (structure tags). Render with `@Html.Raw(Model.Content)`. Presentation belongs in the template.
 - ❌ Never use `@row.Get<T>("field")` without wrapping — always `@(row.Get<T>("field"))`
 - ❌ Never use CSS `@media`, `@keyframes`, `@font-face` unescaped — always `@@media`, `@@keyframes`, `@@font-face`
 - ❌ Never put `@model` in a master layout template
@@ -273,7 +272,7 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 - ❌ Never call `@Html.Partial()` (sync) — always `@await Html.PartialAsync()`
 - ❌ Never use relative image paths — full public URLs only
 - ❌ Never set `templateId` or `layoutId` to a non-existent or wrong-folderType template
-- ❌ Never put content body (`content`, `excerpt`) in CSHTML — HTML only
+- ❌ Never put `style`/`class` attributes, `<style>`/`<script>` blocks, JS, or CSS in `content`/`excerpt` fields — these are **semantic HTML only** (structure tags like `<p>`, `<a>`, `<strong>`). Presentation belongs in the template (`.cshtml`). Render with `@Html.Raw(Model.Content)`.
 - ❌ Never use display names in MixDb queries — always system names (`<site_name>_table`)
 - ❌ Never pass display or system names as the parent/child key to `create_relationship` — it takes numeric table IDs (`parentId`/`childId`); there is no `CreateMixDbRelationshipFromPrompt` tool
 - ❌ Never guess module system names — call `ListModuleContents` first
