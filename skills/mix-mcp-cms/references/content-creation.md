@@ -1,3 +1,13 @@
+## 🚨 CRITICAL: ValidateTemplate After Every CreateTemplate / UpdateTemplate
+
+After every `CreateTemplate` or `UpdateTemplate` call, you MUST call `ValidateTemplate` and fix every `CS*`/`RZ*` error before creating page/module content or opening a browser. See [razor-rules.md §0](razor-rules.md) for the full rule.
+
+```text
+CreateTemplate → ValidateTemplate → fix errors (SearchReplaceTemplate/UpdateTemplate) → ValidateTemplate → success:true → proceed
+```
+
+---
+
 # Content Creation — Template Assignment (REQUIRED)
 
 **Every content type must use a template whose `folderType` matches the content type exactly.** Mismatched folderTypes cause silent render failures or exceptions.
@@ -117,15 +127,17 @@ Step 2: Read each linked module's template
   GetTemplate(id: {moduleTemplateId})
   → understand the current HTML output, CSS classes, and structure
 
-Step 3: After updating the page template, verify compatibility
+Step 3: After updating the page template, validate then verify compatibility
+  UpdateTemplate(id: {pageTemplateId}, content: "...")
+  → ValidateTemplate(id: {pageTemplateId}) → fix errors → re-validate until success:true
   - Do the page's wrapper CSS classes match what modules expect?
   - Does the page's grid structure (column count, gap) work with module output?
   - Are responsive breakpoints consistent between page and module templates?
   - If the page changed from all-modules-loop to specific SystemName lookups, do the names still match?
 
-Step 4: Update module templates if needed
+Step 4: Update module templates if needed (validate each)
   UpdateTemplate(id: {moduleTemplateId}, content: "...")
-  → then ValidateTemplate on each changed module template
+  → ValidateTemplate(id: {moduleTemplateId}) → fix errors → re-validate until success:true
 ```
 
 ### Example
@@ -156,9 +168,9 @@ that worked for 3-column but breaks in 4-column — update the module template t
 |-------|-------------|-----------|
 | 0 | Requirements & planning | `Search`, `GetMixDbBySystemName`, `ListPageContents` |
 | 1 | MixDb schema setup | `CreateMixDbTableFromPrompt` (AI) or `CreateMixDbTable` + `CreateColumn` + `CreateRelationship` |
-| 2 | Master layout | `CreateTemplate` with `folderType="Masters"` — ALWAYS FIRST |
-| 3 | Module templates | `CreateTemplate` with `folderType="Modules"` |
-| 4 | Page templates | `CreateTemplate` with `folderType="Pages"` |
+| 2 | Master layout | `CreateTemplate(folderType="Masters")` → **`ValidateTemplate` → fix → re-validate** — ALWAYS FIRST |
+| 3 | Module templates | `CreateTemplate(folderType="Modules")` → **`ValidateTemplate` → fix → re-validate** |
+| 4 | Page templates | `CreateTemplate(folderType="Pages")` → **`ValidateTemplate` → fix → re-validate** |
 | 5 | Seed MixDb data | `CreateRow` (single) or `CreateMixDbTableFromPrompt` with seed data description |
 | 6 | Content creation | `CreatePageContent` (verify templateId + layoutId first), `CreateModuleContent`, `CreatePostContent` |
 | 7 | Wire up | `CreatePageModuleAssociation`, `CreatePagePostAssociation` |

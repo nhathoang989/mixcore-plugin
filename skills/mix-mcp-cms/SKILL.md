@@ -16,6 +16,21 @@ Then replace every `mcp__mixcore__` reference in this skill with `{MCP_PREFIX}`.
 
 > This step is skipped automatically when `mixcore:mix-mcp-cms` is invoked via the `mixcore:mixcore` router (which already resolved `{MCP_PREFIX}` and `{SITE_URL}` in its own Step 0).
 
+## 🚨 CRITICAL RULE: Load razor-rules.md Before ANY Template Write — ValidateTemplate After
+
+**Before every `CreateTemplate` or `UpdateTemplate` call**, you MUST load **[references/razor-rules.md](references/razor-rules.md)** and apply every rule in it. This is not optional — it is the template syntax contract. Skipping it causes `@@`-escaping bugs, wrong `@model` declarations, broken partial paths, missing `.cshtml` extensions, and section-count crashes.
+
+**After every `CreateTemplate` or `UpdateTemplate` call**, you MUST call `ValidateTemplate` and fix every `CS*`/`RZ*` error before creating page/module content or opening a browser. The compile-check takes ~1s; a create-page → navigate → read-500 → fix loop on errors a ValidateTemplate would have surfaced is wasted work.
+
+```text
+Gate order for EVERY template task:
+  Wiki-First → Design-System-First → Frontend-Design-First → Load razor-rules.md → CreateTemplate/UpdateTemplate → ValidateTemplate → fix errors → ValidateTemplate → success:true → proceed
+```
+
+If `ValidateTemplate` returns `skipped:true` (`.liquid` template), that's fine — Razor compilation doesn't apply.
+
+---
+
 ## Reference files (load when relevant)
 
 | Topic | File |
@@ -211,16 +226,16 @@ writing any Page, Post, Module, or Widget template. Always `@Html.Raw()` HTML fi
 
 | Request | Action |
 |---|---|
-| "create master layout" | `CreateTemplate(folderType="Masters", fileName="MyMaster.cshtml")` — **fileName MUST include `.cshtml`**; always before pages |
-| "create page template" | `CreateTemplate(folderType="Pages", fileName="HomePage.cshtml")` — **fileName MUST include `.cshtml`**; see [razor-rules.md](references/razor-rules.md) §1 |
-| "create module template" | `CreateTemplate(folderType="Modules", fileName="HeroBanner.cshtml")` — **fileName MUST include `.cshtml`** |
-| "create post template" | `CreateTemplate(folderType="Posts", fileName="BlogPost.cshtml")` — **fileName MUST include `.cshtml`** |
-| "create widget template" | `CreateTemplate(folderType="Widgets", fileName="Newsletter.cshtml")` — **fileName MUST include `.cshtml`**; use `@model dynamic` |
-| "create form template" | `CreateTemplate(folderType="Forms", fileName="ContactForm.cshtml")` — **fileName MUST include `.cshtml`**; see [form-templates.md](references/form-templates.md) |
-| "create data/detail template for MixDB table" | 1. `GetMixDbBySystemName(includeColumns: true)` → confirm schema. 2. `CreateTemplate(folderType="Data", fileName="Detail.cshtml")` — `@model Mix.DataSource.Models.MixDbRow` (the controller passes the loaded row; no primary re-query). Inject `@inject IMixDbDataService db` ONLY when you need related rows. 3. `UpdateMixDbTable(systemName, templateId: <id>)` to assign. See [mixdb-in-razor.md → Data-detail template contract](references/mixdb-in-razor.md) |
-| "update page template" | After `UpdateTemplate`, **check linked modules**: `ListPageModuleAssociations(pageId)` → read each module's template via `GetTemplate` → verify the page template's wrapper HTML/CSS is still compatible with each module template's output. If the page layout changed (grid columns, spacing, breakpoints), update affected module templates too. See [content-creation.md → Update Workflow](references/content-creation.md). |
-| "update module template" | After `UpdateTemplate`, **check parent pages**: `GetPagesWithModule(moduleId)` → read each page's template → verify the module's new output still fits each page's container structure. |
-| "validate / compile-check a template" | `ValidateTemplate(templateId)` after every `CreateTemplate`/`UpdateTemplate` — returns `{ success, skipped, errors:[{ line, message, code }] }`. Fix `CS*`/`RZ*` errors before creating page content. `.liquid` → `skipped:true`. Pre-flight raw markup with `ValidateTemplate(content, folderType)`. |
+| "create master layout" | `CreateTemplate(folderType="Masters", fileName="MyMaster.cshtml")` — **fileName MUST include `.cshtml`**; always before pages. **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create page template" | `CreateTemplate(folderType="Pages", fileName="HomePage.cshtml")` — **fileName MUST include `.cshtml`**; see [razor-rules.md](references/razor-rules.md) §1. **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create module template" | `CreateTemplate(folderType="Modules", fileName="HeroBanner.cshtml")` — **fileName MUST include `.cshtml`**. **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create post template" | `CreateTemplate(folderType="Posts", fileName="BlogPost.cshtml")` — **fileName MUST include `.cshtml`**. **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create widget template" | `CreateTemplate(folderType="Widgets", fileName="Newsletter.cshtml")` — **fileName MUST include `.cshtml`**; use `@model dynamic`. **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create form template" | `CreateTemplate(folderType="Forms", fileName="ContactForm.cshtml")` — **fileName MUST include `.cshtml`**; see [form-templates.md](references/form-templates.md). **Then `ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** |
+| "create data/detail template for MixDB table" | 1. `GetMixDbBySystemName(includeColumns: true)` → confirm schema. 2. `CreateTemplate(folderType="Data", fileName="Detail.cshtml")` — `@model Mix.DataSource.Models.MixDbRow`. 3. **`ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** 4. `UpdateMixDbTable(systemName, templateId: <id>)` to assign. Inject `@inject IMixDbDataService db` ONLY for related rows. See [mixdb-in-razor.md → Data-detail template contract](references/mixdb-in-razor.md). |
+| "update page template" | `UpdateTemplate(id, content: ...)` → **`ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** Then **check linked modules**: `ListPageModuleAssociations(pageId)` → read each module's template via `GetTemplate` → verify the page template's wrapper HTML/CSS is still compatible with each module template's output. If the page layout changed (grid columns, spacing, breakpoints), update affected module templates too (and validate each). See [content-creation.md → Update Workflow](references/content-creation.md). |
+| "update module template" | `UpdateTemplate(id, content: ...)` → **`ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** Then **check parent pages**: `GetPagesWithModule(moduleId)` → read each page's template → verify the module's new output still fits each page's container structure. |
+| "validate / compile-check a template" | `ValidateTemplate(templateId)` — returns `{ success, skipped, errors:[{ line, message, code }] }`. Fix `CS*`/`RZ*` errors before creating page content. `.liquid` → `skipped:true`. Pre-flight raw markup with `ValidateTemplate(content, folderType)`. **Loop `Validate → fix (SearchReplaceTemplate/UpdateTemplate) → Validate` until `success:true`.** |
 | "create a page" | Verify templateId + layoutId folderTypes → `CreatePageContent` — see [content-creation.md](references/content-creation.md) |
 | "create a module" | Verify `templateId` has `folderType="Modules"` → `CreateModuleContent` |
 | "create a post" | Verify templateId + layoutId → `CreatePostContent` |
