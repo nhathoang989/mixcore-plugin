@@ -21,11 +21,17 @@ dotnet build src/MixCore.Cloud.sln --no-restore       # skip restore (faster aft
 ## Run
 
 ```bash
-dotnet run --project src/apps/MixCore.Cloud.Web       # main web app
+dotnet run --project src/apps/MixCore.Cloud.Web       # main web app — default profile binds :5000 (HTTP) + :5001 (HTTPS) + :1883 (MQTT)
 dotnet run --project src/host/mixcore.host            # all services via .NET Aspire (AppHost.cs)
 docker compose up --build                            # Docker Compose (SQLite by default)
 docker compose --profile postgres up --build         # Docker Compose (PostgreSQL)
 ```
+
+🚨 **Keep the default launch profile — do NOT run `--no-launch-profile` (HTTP-only).** The in-app
+loopback MCP self-call uses `McpEndpoint` (default `https://localhost:5001/mcp`), so the **HTTPS :5001**
+binding is required for the AskAI / Flows agents to load their MCP tool-belt. Running HTTP-only leaves
+those agents with **only plan-management tools** ("I don't have a fetch tool"), so flow `AskAI` steps
+silently do nothing. To free ports: `lsof -ti :5000 -ti :5001 -ti :1883 | xargs kill -9`.
 
 ## Test
 
