@@ -103,10 +103,12 @@ Publishes a message to the in-process queue. Another subscriber picks it up.
 {
   "prompt": "Read table 'news_article', fetch https://techcrunch.com/feed/, insert any new articles, then reply with the inserted titles.",
   "sessionId": "optional-conversation-id",
-  "model": "optional-model-id"
+  "model": "optional-model-id",
+  "provider": "optional-provider-name"
 }
 ```
-- `prompt` is required. `sessionId` and `model` are optional. **No `url` / `apiKey` / `body` / `json` / `responsePath`** — those were the old HTTP handler and no longer exist.
+- `prompt` is required. `sessionId`, `model`, and `provider` are optional. **No `url` / `apiKey` / `body` / `json` / `responsePath`** — those were the old HTTP handler and no longer exist.
+- `provider` selects the LLM provider (e.g. `"Groq"`, `"DeepSeek"`); omitted → default provider.
 - Tools run **auto-approved** (unattended; approval-gated tools execute without a human in the loop) and are tenant-scoped, so the agent can only touch the run's own tenant.
 - Output: `{ "content": "<final answer>", "planId"?: "…" }`. Downstream: `{{steps.<n>.content}}` (no `.output` segment — see Parameter injection).
 
