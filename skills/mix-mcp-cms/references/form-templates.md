@@ -7,6 +7,13 @@ Required attributes, JavaScript handler, and hidden-field patterns for forms tha
 
 For Razor authoring rules (escaping, partials, sections), see [razor-rules.md](razor-rules.md).
 
+> 🚨 **Never build a server-side `<form method="post">` that handles the POST in Razor**
+> (e.g. `@if (Context.Request.Method == "POST") { db.CreateRowAsync(...) }`). Mixcore SSR page
+> routes are **GET-only** — a `POST` to any page (`/contact`, `/faq`, …) returns **HTTP 405** and
+> the Razor block never runs, so no row is saved and the user sees no error. Editing such a
+> template can never fix it; the only working path is the `frm-mixdb-ajax` + public-endpoint
+> pattern below.
+
 ---
 
 ## Form markup (Page or Form template)
