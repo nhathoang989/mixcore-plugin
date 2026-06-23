@@ -188,7 +188,44 @@ The master layout renders for every page and has **no `@model`**, so it cannot k
 
 Style `.active` like the link's hover state. Do this in JS — the master has no page context, so a server-side `Model.SeoName` check isn't available at the master layer.
 
+### 5c. 🚨 Route values / culture — use `Context.Request.RouteValues`, NOT `Context.GetRouteData()`
+
+`Context.GetRouteData()` is an **extension method** (`Microsoft.AspNetCore.Routing`) that is **not in scope** in a runtime-compiled CMS template — it fails at render with `CS1061: 'HttpContext' does not contain a definition for 'GetRouteData'`. Read route values from the in-scope property instead:
+
+```cshtml
+@* ✅ property — always available, no @using needed *@
+var culture = Context.Request.RouteValues["culture"]?.ToString() ?? "en-us";
+
+@* ❌ extension method — CS1061 at render in a CMS template *@
+var culture = Context.GetRouteData()?.Values["culture"]?.ToString() ?? "en-us";
+```
+
+General rule for templates: prefer **properties** on `Context` / `Context.Request` (`Context.Request.RouteValues`, `Context.Request.Query`, `Context.Request.Path`) over routing/HTTP **extension methods** (`GetRouteData()`, `GetRouteValue()`, …), which require `@using` directives the runtime template compiler does not bring in. `validate_template` catches this immediately — always compile-check after writing a master.
+
 ---
+
+## 5d. 🚨 `GetDataAsync` filter is a JSON ARRAY — and it does NOT sort
+
+`IMixDbDataService.GetDataAsync(table, filterJson)` deserializes its 2nd arg into `List<TableDataQueryField>`, so the string **must be a JSON array** of `{fieldName, value, operator}` filters — or omitted. There is **no sort/order parameter**.
+
+```cshtml
+@* ❌ JSON OBJECT with a made-up "order" key → JsonSerializationException ("requires a JSON array") at request time *@
+var rows = await Db.GetDataAsync("mix_services", "{\"order\":[{\"field\":\"sort_order\",\"dir\":\"asc\"}]}");
+
+@* ✅ filter = JSON ARRAY of {fieldName,value,operator}; omit it for all rows *@
+var rows = await Db.GetDataAsync("mix_services", "[{\"fieldName\":\"is_active\",\"value\":true,\"operator\":\"=\"}]");
+var all  = await Db.GetDataAsync("mix_services");
+```
+
+To **sort**, order in Razor (`GetDataAsync` returns `IReadOnlyList<Dictionary<string, object?>>`):
+
+```cshtml
+@using System.Linq
+static int SortKey(Dictionary<string, object?> r) => r.TryGetValue("sort_order", out var v) && v != null ? Convert.ToInt32(v) : 0;
+var rows = (await Db.GetDataAsync("mix_services")).OrderBy(SortKey).ToList();
+```
+
+`validate_template` is compile-only and CANNOT catch this (it's a runtime deserialization error). Run **`validate_site_queries`** as a build-site gate to catch a bad filter literal before declaring success.
 
 ## 6. MixDB value rendering — use `row.Get<T>()` inside `@(...)`
 
