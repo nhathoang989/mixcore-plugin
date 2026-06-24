@@ -18,9 +18,10 @@ You are implementing **AI chat backend functions** for Mixcore CMS — the Signa
 | Item | Value |
 |---|---|
 | Hub URL | `/hubs/site-knowledge` |
-| Auth requirement | `[Authorize]` — Bearer JWT required |
-| Client method to invoke | `hub.invoke('AskAI', message, sessionId, provider, model)` |
-| `provider` / `model` | Both nullable — pass `null` to use the server default |
+| Auth requirement | **Anonymous-friendly** — the shipped `SiteKnowledgeHub` has **no** `[Authorize]`; it falls back to `Context.ConnectionId` for anonymous visitors. A Bearer JWT is **optional** (enables user-scoped history). The sign-in gate below applies only to deployments that enforce auth on the hub externally. |
+| Client method to invoke | `hub.invoke('AskAI', message, sessionId, provider, model, thinking)` — **5 args** (server: `AskAI(string message, string? sessionId, string? provider, string? model, string? thinking)`) |
+| ⚠️ Arg count is strict | SignalR does **not** apply C# default values — the client **must** pass all 5 args. A short list (e.g. just `message`) fails argument binding → the invoke rejects ("cannot invoke AskAI"). Pass `null` for the trailing optionals. |
+| `provider` / `model` / `thinking` | All nullable — pass `null` to use the server default |
 | Server → client: chunk | `ReceiveChunk` → string chunk |
 | Server → client: complete | `ReceiveComplete` → object `{content, success, planId, error}` (camelCase from SignalR) |
 | Server → client: error | `ReceiveError` → object `{title, detail}` |
@@ -241,7 +242,7 @@ CSS for the AI bubble (`.mix-b`) belongs in the template content field — imple
 
 ## Auth failure detection
 
-**Do not force login up front — connect first, reveal the gate only when the connection fails.** Always attempt `hub.start()` when the drawer opens, even with no token: a logged-out visitor sees the chat UI immediately and the sign-in gate appears *only* if the connection is actually rejected. The hub is `[Authorize]` (Bearer), so an unauthenticated `negotiate` fails with `statusCode === 401` — the clean, primary auth signal. Some hosts instead redirect the anonymous `negotiate` to an HTML login page (302 → `/p/login`), so `hub.start()` throws a JSON parse error (`Unexpected token '<', "<!DOCTYPE "…`) rather than a 401 — treat that as an auth failure too, because the redirect *is* the auth challenge. Every other failure (network drop, proxy error, server 500) is **not** auth — show a generic error.
+**Do not force login up front — connect first, reveal the gate only when the connection fails.** Always attempt `hub.start()` when the drawer opens, even with no token: a logged-out visitor sees the chat UI immediately and the sign-in gate appears *only* if the connection is actually rejected. The shipped `SiteKnowledgeHub` is anonymous-friendly, so anonymous visitors connect fine and this gate never fires for them. **When a deployment enforces auth on the hub**, an unauthenticated `negotiate` fails with `statusCode === 401` — the clean, primary auth signal. Some hosts instead redirect the anonymous `negotiate` to an HTML login page (302 → `/p/login`), so `hub.start()` throws a JSON parse error (`Unexpected token '<', "<!DOCTYPE "…`) rather than a 401 — treat that as an auth failure too, because the redirect *is* the auth challenge. Every other failure (network drop, proxy error, server 500) is **not** auth — show a generic error.
 
 ```js
 function handleConnectError(e) {
@@ -425,7 +426,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] `@@microsoft` in the SignalR CDN URL (Razor escaping)
 - [ ] Hub URL is `/hubs/site-knowledge`
 - [ ] Token read from `localStorage['mix_access_token']`
-- [ ] `hub.invoke('AskAI', message, sessionId, null, null)` — provider and model default to null
+- [ ] `hub.invoke('AskAI', message, sessionId, null, null, null)` — **5 args** (provider/model/thinking passed as `null`). SignalR ignores C# default values, so a short arg list (e.g. just `message`) fails binding → "cannot invoke AskAI"
 - [ ] `marked.js` CDN added for markdown rendering — `rawText` accumulator used (not `bubble.textContent`)
 - [ ] `connect()` always attempts `hub.start()` — **no gate-first / no token pre-check**; the login gate is shown by `handleConnectError`, only when the connection fails
 - [ ] Auth-failure detection gates on a real auth signal — `statusCode === 401` (primary) **or** an HTML-login redirect (`DOCTYPE` / parse error); network / 500 / proxy errors show a generic error, not the login gate

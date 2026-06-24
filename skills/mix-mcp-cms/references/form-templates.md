@@ -14,6 +14,8 @@ For Razor authoring rules (escaping, partials, sections), see [razor-rules.md](r
 > template can never fix it; the only working path is the `frm-mixdb-ajax` + public-endpoint
 > pattern below.
 
+> 🚨 **Put the form in a Page/Form *template* — never bake `<form>` markup into a page's `Content` (or `Excerpt`) data field.** The `Content` field is semantic **prose**, output via `@Html.Raw(Model.Content)`; it is **not compiled as Razor**, so a form placed there can't use partials, mixes interactive structure into editor-owned copy (a content edit can silently break it), and can't be cleanly isolated per page. Author the form in a **Form template** (`folderType: Forms`, `@model dynamic`) and embed it with `@await Html.PartialAsync("../Forms/<name>.cshtml")` from the page template (or put the markup directly in the page template). Keep `Content` to headings/intro copy only. *(This is also why a page that needs a form — e.g. Contact — should get its **own** page template rather than reusing a shared inner-page template whose other pages have no form.)*
+
 ---
 
 ## Form markup (Page or Form template)

@@ -446,7 +446,7 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
         addAssistantBubble();
         history.push({ role: 'user', text: text, ts: Date.now() });
         persistHistory();
-        hub.invoke('AskAI', text, sessionId, null, null)
+        hub.invoke('AskAI', text, sessionId, null, null, null)  // 5 args: message, sessionId, provider, model, thinking (SignalR ignores C# defaults — pass all five)
            .catch(function (e) { showError(e.toString()); });
     }
 

@@ -49,7 +49,7 @@ system-prompts/
     ├── start-here.md                  # Master index
     ├── overview/
     │   ├── mixcore-cms-overview.md
-    │   └── AIChatWidget.md
+    │   └── ai-chat-widget.md
     ├── content/
     │   ├── modules.md
     │   ├── pages.md
@@ -146,7 +146,7 @@ wiki/
 | `system-prompts/instructions/developer/infrastructure-providers.md` | `docs/04-mixcore-cloud-technical-architecture.md` and `docs/services/cloud-service-providers.md` |
 | `system-prompts/instructions/mixdb/*.md` | `plugins/mixcore/skills/mix-mcp-db/SKILL.md` and `plugins/mixcore/skills/mix-mcp-cms/references/` |
 | `system-prompts/instructions/templates/*.md` | `plugins/mixcore/skills/mix-mcp-cms/references/` |
-| `system-prompts/instructions/overview/AIChatWidget.md` | `plugins/mixcore/skills/mix-mcp-ai/` (chat-widget reference) |
+| `system-prompts/instructions/overview/ai-chat-widget.md` | `plugins/mixcore/skills/mix-mcp-ai/` (chat-widget reference) |
 | `system-prompts/instructions/reference/mix-cms-reference.md` | Enums/folder-types live in the live MCP tool schemas (ToolSearch); mirror in `mix-mcp-cms/SKILL.md` "Enum Values" |
 | `system-prompts/instructions/reference/cms-csharp-extension-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` (CMS C# extension patterns) |
 | `system-prompts/instructions/workflows/*.md` | No direct skill counterpart — server-side AI workflow guides; mirror architectural facts in the relevant `mix-mcp-*` skill |

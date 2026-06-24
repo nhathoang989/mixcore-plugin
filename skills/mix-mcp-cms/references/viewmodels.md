@@ -16,6 +16,8 @@ model or `@model dynamic`; Widget and Form templates use `@model dynamic`.
 | `Masters` | none | — (never put `@model` in a master) |
 | `Data` | `@model Mix.DataSource.Models.MixDbRow` | — (MixDB record detail at `/db/{table}/{id}`; controller passes the loaded row in as the model — **no `Layout`**, no re-query; `@section Seo` works because it renders as a main view) |
 
+> 🚨 **The renderer passes the page/post as the typed `Model` (`FrontendController` does `return View(page)`), NOT via `ViewBag`.** `ViewBag.Content` / `ViewBag.Title` / `ViewBag.Description` / `ViewBag.Page` are **never populated** — reading them renders an **empty body/hero even though the page's `Content` field is full** (the #1 cause of "page renders no content"). Always read page data from `@Model.*`: `@Html.Raw(Model.Content)`, `@Model.Title`, `@Html.Raw(Model.Excerpt)`. The master layout *does* read `ViewBag.Title`/`ViewBag.Description` for the document `<title>`/meta — but only what **your template** assigns: set `ViewBag.Title = Model.Title;` yourself in an `@{ }` block to prime it (as `HomePage.cshtml` does).
+
 ---
 
 ## PageContentViewModel (`folderType="Pages"`)
