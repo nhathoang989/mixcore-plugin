@@ -19,6 +19,27 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 
 ---
 
+## 0.5 🚨 NEVER write `@section X { … }` blocks in a generated template
+
+**Every template you generate — Pages, Posts, Modules, Widgets, Forms, and Masters — must contain ZERO `@section` definition blocks.** A `@section` never reaches the page, and `ValidateTemplate` (compile-only, no render) does **NOT** catch it — so this rule is the only guard:
+
+- **Page / Post / Module / Widget / Form** templates render as a nested `<partial>` (`<partial name="@Model.TemplateFilePath" model="@Model" />`). Razor honors `@section` only in a view that participates in the layout, so a `@section` inside a partial is **silently dropped** — the CSS/JS/SEO it holds never appears (the page renders unstyled / scriptless, no error).
+- **Master** templates are the top-level layout; a `@section` there has no outer layout to render it and **crashes every page** at render (`InvalidOperationException: The following sections have been defined but have not been rendered … 'Seo'`). A master **RENDERS** sections (`@RenderSection(...)`), it never defines them.
+
+**Deliver what you'd have put in a `@section` this way instead:**
+
+| Instead of… | In a generated template, do this |
+|---|---|
+| `@section Styles { <style>…</style> }` | **Page templates:** the template's **`Styles` field** (`CreateTemplate(styles: "<style>…</style>")`) — the host view auto-renders it into the master's `<head>`. **Any template type:** **inline `<style>` in the body** (renders via `@RenderBody`). The field value must include the `<style>` tags (it is emitted raw). |
+| `@section Scripts { <script>…</script> }` | The template's **`Scripts` field** (page templates) **or** **inline `<script>` in the body**. Tags included. |
+| `@section Seo { <meta>… }` | The page/post **SEO fields** (`seoTitle` / `seoDescription` / …) — the host view emits the meta. |
+
+> **The ONE exception:** a **Data** record-detail template (`folderType="Data"`, route `/db/{table}/{id}`) is rendered as a **main view**, not a partial — so its `@section Seo { … }` *does* reach the master and is allowed there. No other generated template may use any `@section`.
+
+See §5 for master section-count rules and the `Styles`/`Scripts`-field mechanics.
+
+---
+
 ## 1. Mandatory `@model` declarations
 
 | Template type | folderType | `@model` |

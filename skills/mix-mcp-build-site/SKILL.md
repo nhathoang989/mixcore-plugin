@@ -351,7 +351,12 @@ Tasks:
    - `<form class="frm-mixdb-ajax" data-mixdb-table="<site_name>_contacts">` (both attributes mandatory)
    - Verify the target MixDB table exists (created in phase 1)
    - **Numeric columns** (`Double`, `Integer`): the `frm-mixdb-ajax` handler must coerce `FormData` strings to JS numbers before `JSON.stringify`, or PostgreSQL raises error 42804 (`column "x" is of type double precision but expression is of type text`). Use `/^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : v` in the `forEach` loop. See `mixcore:mix-mcp-cms/references/form-templates.md` § Numeric fields.
-   - Validate the template (`ValidateTemplate`) per the Agent Protocol rule
+   - **🚦 Validate the form template** (do ALL of these before associating it — a form that "looks right" but fails any of these silently never saves):
+     1. **Compile** — `ValidateTemplate(templateId)` → fix `CS*`/`RZ*` until `success:true` (per the Agent Protocol rule).
+     2. **`frm-mixdb-ajax` contract** — the markup MUST have BOTH `class="frm-mixdb-ajax"` AND `data-mixdb-table="<table>"`; missing either means the handler never picks the form up and submit is a no-op.
+     3. **Field ↔ column match** — call `GetMixDbBySystemName(<table>, includeColumns:true)` and confirm every `<input|select|textarea name="X">` matches a column `systemName`. Extra fields are silently dropped; a required column with no matching field fails at insert (NOT NULL → 500). NEVER include the server-auto columns `id` / `created_date_time` / `created_by`.
+     4. **Form lives in a TEMPLATE, not `Content`** — the `<form>` belongs in this Form template (or a page template, embedded via `@await Html.PartialAsync("../Forms/<name>.cshtml")`), NEVER baked into a page's `Content` data field (that field is prose, output via `@Html.Raw` — not Razor-compiled, can't carry partials). See `mixcore:mix-mcp-cms/references/form-templates.md`.
+     5. **Submit handler present** — the master layout carries the single `frm-mixdb-ajax` JS handler that POSTs to `/api/v1/rest/mixdb/data/{table}` (added in Phase 2). Without it, every form on the site is inert.
 2. **Widgets** — `CreateTemplate(folderType: "Widgets")`:
    - Model: `@model dynamic` (default) or `ModuleContentViewModel` when passed from parent
    - Keep focused and single-purpose (newsletter, recent posts, search bar)
