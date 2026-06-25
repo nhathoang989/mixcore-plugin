@@ -33,8 +33,11 @@ model or `@model dynamic`; Widget and Form templates use `@model dynamic`.
 | `Model.LastModified` | `DateTime?` | Use null-conditional: `Model.LastModified?.ToString(...)` |
 | `Model.ModifiedBy` | `string?` | Username of last editor |
 
-> **`pageType`** is a `create_page_content` argument (not a `Model` property): pass the string
-> `"System"`, `"Home"`, `"Article"`, etc. When a page sets `layoutId: null`, the page template is
+> **`type`** is a `create_page_content` argument (not a `Model` property): pass the string
+> `"System"`, `"Home"`, `"Article"`, or `"ListPost"` from the `MixPageType` enum.
+> **🚨 Home pages MUST use `type: "Home"` — never `"Article"`.** The CMS uses this type to
+> identify the site root page. Only ONE page per site should have `type: "Home"`.
+> When a page sets `layoutId: null`, the page template is
 > the entire response — it must be a full HTML document and `@RenderBody()` is bypassed.
 
 ---

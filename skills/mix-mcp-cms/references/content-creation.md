@@ -16,6 +16,27 @@ For Razor template authoring rules, see [razor-rules.md](razor-rules.md).
 
 ---
 
+## 🚨 CRITICAL RULE: Page Type (Home MUST be "Home")
+
+Every `CreatePageContent` call has a `type` parameter. **The type MUST match the page's purpose.**
+
+```
+MixPageType enum (Mix.Constant.Enums.MixPageType):
+  "System"   — internal system pages (login, error, installation)
+  "Home"     — the site's home/front page
+  "Article"  — content articles, about pages, info pages
+  "ListPost" — blog listing / post archive pages
+```
+
+| Page purpose | `type` value |
+|---|---|
+| **Home / front page** | **`"Home"`** ← MANDATORY for home pages |
+| About, Contact, Info, Services | `"Article"` |
+| Blog listing, News archive | `"ListPost"` |
+| Login, 404, System | `"System"` |
+
+**🚨 A home page created with `type: "Article"` is WRONG.** The site can only have ONE `type: "Home"` page. The CMS uses this type to identify which page is the site root. Creating the home page as `"Article"` breaks the site's root URL resolution.
+
 ## Required folderType per content type
 
 | Content type | `templateId` folderType | `layoutId` folderType |
@@ -32,6 +53,13 @@ For Razor template authoring rules, see [razor-rules.md](razor-rules.md).
 Before calling `CreatePageContent`, `CreateModuleContent`, or `CreatePostContent`, **always verify** the template IDs:
 
 ```
+Step 0: Set the correct type for CreatePageContent
+  → type must be "Home" for the site's home/front page
+  → type must be "Article" for content pages (About, Contact, etc.)
+  → type must be "ListPost" for blog listing pages
+  → type must be "System" for internal pages (login, error, etc.)
+  → NEVER use "Article" for a home page — this breaks site root resolution
+
 Step 1: GetTemplate(id: {templateId})
   → folderType must be "Pages"   for CreatePageContent
   → folderType must be "Modules" for CreateModuleContent
