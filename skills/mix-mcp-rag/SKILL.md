@@ -4,6 +4,7 @@ description: Use when searching the wiki knowledge base, creating or updating wi
 argument-hint: "[search|generate|read|list|delete|reload] [query or path]"
 allowed-tools:
   - mcp__mixcore__search
+  - mcp__mixcore__search_backend_knowledge
   - mcp__mixcore__generate_document
   - mcp__mixcore__read_document
   - mcp__mixcore__list_documents
@@ -21,7 +22,8 @@ All wiki document operations go through the MCP tools below. **Never use `mcp__m
 
 | Operation | Tool | Notes |
 |---|---|---|
-| Semantic search | `mcp__mixcore__search` | BM25 + optional LLM rerank; `topK` default 5 |
+| Semantic search (tenant wiki) | `mcp__mixcore__search` | Per-tenant **SiteWiki**; BM25 + optional LLM rerank; `topK` default 5 |
+| Search backend/system knowledge | `mcp__mixcore__search_backend_knowledge` | **Global** Mixcore system-instruction corpus (`wwwroot/system-prompts/instructions` — developer guides, API conventions, MCP-tool catalog); **not** tenant-scoped; `topK` default 5 |
 | Create or update doc | `mcp__mixcore__generate_document` | Writes to disk **and** upserts into index atomically |
 | Read a doc | `mcp__mixcore__read_document` | Returns raw markdown incl. frontmatter |
 | List docs in folder | `mcp__mixcore__list_documents` | `recursive=true` for subtrees |
@@ -29,6 +31,8 @@ All wiki document operations go through the MCP tools below. **Never use `mcp__m
 | Bulk reload index | `mcp__mixcore__reload_wiki` | Only after manual file edits outside the tools |
 
 `generate_document` and `delete_document` update the in-memory index immediately — **no `reload_wiki` call needed** after individual document operations.
+
+> **`search` vs `search_backend_knowledge`:** use `search` for a tenant's own content (the SiteWiki), and `search_backend_knowledge` for how the **platform** works (developer guides, API/MCP conventions). The latter is backed by `VectorLessService(WikiFolders.SystemInstructions)` and is not tenant-scoped. The **Admin Helpdesk AskAI** flow (`AdminHelpdeskHub`) should call `search_backend_knowledge` to recover grounded backend knowledge **when a turn fails, the answer is uncertain/unhelpful, or the model lacks the platform detail to answer** — then re-answer from the retrieved instructions rather than guessing.
 
 ---
 

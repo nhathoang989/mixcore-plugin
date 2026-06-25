@@ -19,7 +19,7 @@ ValidateTemplate(content: "<h1>@Model.Title</h1>", folderType: "Pages")   # pre-
 
 ---
 
-## 0.5 🚨 NEVER write `@section X { … }` blocks in a generated template
+## 0.5 🚨 NEVER write `@section Scripts { … } | @section Styles { … } | @section Seo { … }` blocks in a generated template
 
 **Every template you generate — Pages, Posts, Modules, Widgets, Forms, and Masters — must contain ZERO `@section` definition blocks.** A `@section` never reaches the page, and `ValidateTemplate` (compile-only, no render) does **NOT** catch it — so this rule is the only guard:
 

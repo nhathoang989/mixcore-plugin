@@ -25,6 +25,7 @@ You are implementing **AI chat backend functions** for Mixcore CMS — the Signa
 | Server → client: chunk | `ReceiveChunk` → string chunk |
 | Server → client: complete | `ReceiveComplete` → object `{content, success, planId, error}` (camelCase from SignalR) |
 | Server → client: error | `ReceiveError` → object `{title, detail}` |
+| Client method: clear history | `hub.invoke('ClearHistory', sessionId)` — deletes server-side conversation |
 | Token source (vanilla JS) | `localStorage['mix_access_token']` |
 | Conversation history key | `localStorage['mix_chat_history']` — JSON `[{role, text, ts}]` |
 | Persisted session id key | `localStorage['mix_chat_session_id']` — string |
@@ -163,12 +164,15 @@ function renderHistory() {
 }
 
 function clearHistory() {
+    var oldSid = sid;
     history = [];
     sid = null;
     try {
         localStorage.removeItem(HISTORY_KEY);
         localStorage.removeItem(SESSION_KEY);
     } catch (e) {}
+    // Delete the server-side conversation too — orphaned sessions accumulate forever otherwise.
+    if (hub && oldSid) hub.invoke('ClearHistory', oldSid).catch(function () {});
 }
 ```
 
@@ -398,7 +402,7 @@ console.assert(history !== null, 'mix_chat_history should be set after a message
 | Spinner hangs, no reply | Hub URL wrong (`/hubs/llm` vs `/hubs/site-knowledge`) | Check hub URL constant in JS |
 | `@@microsoft` visible in page source | `@` not escaped in template | Double every `@` in CDN URLs in the content field |
 | Reply renders as raw markdown | `marked.js` not loaded or loaded after the script that calls `fmt()` | Move marked CDN `<script>` before the widget `<script>` |
-| "New chat" leaves history on reload | `clearHistory()` not called | Call `clearHistory()` in the new-chat handler |
+| "New chat" leaves history on reload | `clearHistory()` not calling server | Ensure `clearHistory()` calls `hub.invoke('ClearHistory', oldSid)` AND wipes localStorage |
 
 ---
 
@@ -411,7 +415,7 @@ function onNewChat() {
     rawText = '';
     bubble  = null;
     busy    = false;
-    clearHistory();                 // wipes localStorage + in-memory history + sid
+    clearHistory();                 // wipes localStorage + in-memory history + sid + server-side conversation
     msgs.innerHTML = '';            // clear rendered bubbles
 }
 ```
@@ -438,7 +442,7 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] `persistHistory()` is called **only** after user `send` and after `onComplete` success — never inside `onChunk`
 - [ ] Persisted assistant entries store the **final** text (`rawText || fallback`), not partial streaming chunks
 - [ ] History is capped at 50 messages with FIFO trim before each persist; quota-exceeded path drops oldest half
-- [ ] "New chat" and sign-out flows both call `clearHistory()` — removes `mix_chat_history` AND `mix_chat_session_id`
+- [ ] "New chat" and sign-out flows both call `clearHistory()` — wipes localStorage AND invokes `hub.invoke('ClearHistory', oldSid)` to delete server-side conversation
 - [ ] UI structure (drawer HTML, overlay, trigger button) implemented via the mixcore:mix-mcp-cms skill
 
 ---

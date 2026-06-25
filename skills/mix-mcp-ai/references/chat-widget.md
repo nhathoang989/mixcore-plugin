@@ -401,9 +401,12 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
         scrollBottom();
     }
     function clearHistory() {
+        var oldSid = sessionId;
         history = [];
         sessionId = 'sk-' + Date.now() + '-' + Math.random().toString(36).slice(2);
         try { localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        // Delete the server-side conversation too — orphaned sessions accumulate forever otherwise.
+        if (hub && oldSid) hub.invoke('ClearHistory', oldSid).catch(function () {});
     }
 
     // ---- Hub ----
