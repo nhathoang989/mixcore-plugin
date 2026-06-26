@@ -23,6 +23,8 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 
 **1. Summarise what you understood** (2–3 sentences max). State the site type, brand/name if given, and the primary goal.
 
+**🚨 Framework requests (React, Vue, Angular, Next.js, Svelte, etc.):** If the user mentions any external frontend framework, do NOT install or configure that framework. Explain that Mixcore will build the same site natively using Razor templates, MixDB tables, and CMS modules — achieving the same result without the framework's complexity. Only if the user insists after this explanation, route to `mixcore:mix-mcp-spa` to deploy their pre-built SPA.
+
 **2. Ask focused clarifying questions** — use `AskUserQuestion` with 2–4 targeted questions. Pick only what is still unknown or ambiguous. Common gaps:
 
 | Topic | Example question |
@@ -33,6 +35,14 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 | Pages | "What are the main pages besides Home? (e.g. About, Services, Pricing, Blog, Portfolio)" |
 | Features | "Any special requirements — multi-language, member portal, e-commerce, or none?" |
 | Design style | "Any brand colours, fonts, or design references to follow?" |
+
+**Planning Principles — apply these 3 rules before proposing any site outline:**
+
+1. **Break pages into manageable sections — when applicable.** For each page, ask: "Does this page have multiple distinct visual/functional sections?" If yes, split into reusable modules instead of one monolithic template. Modules are independently editable, reorderable, and reusable across pages. Simple pages (e.g. Privacy Policy, single-column text) don't need decomposition.
+
+2. **Repetitive content belongs in MixDB tables.** If the same kind of content appears in multiple places (team members, testimonials, services, pricing tiers, portfolio items), create a MixDB table for it. Tables give you: centralized editing (change once, update everywhere), list/detail pages for free, and the `IMixDbDataService` API for filtering/sorting in templates. Ask: "Does this content repeat? Will it need to be updated over time?" If yes → table.
+
+3. **Every form needs a database table + a form template.** A contact form without a database is a black hole — submissions are lost. For every form on the site: (a) create a MixDB table to store submissions (columns match form fields), (b) create a `folderType="Forms"` template with `class="frm-mixdb-ajax"` that POSTs to that table, (c) verify the form submits and the row lands in MixDB during Phase 7. This applies to contact forms, newsletter signups, registrations, surveys — any `<form>` the user fills out.
 
 **3. Propose a site plan outline** before waiting for answers — show the user what you _plan_ to build based on what you know, so they can correct or confirm:
 
@@ -151,15 +161,21 @@ Create all planning documents **before executing any phase**. These documents ar
 - About — company story, team
 - [Add more as needed]
 
-### Required Features
-- [Feature 1: description]
-- [Feature 2: description]
+### Page Section Breakdown *(if pages have multiple distinct sections)*
+<!-- Optional — only if a page benefits from being split into reusable modules.
+     A simple text page (e.g. Privacy Policy) does not need this. -->
+- [Page name]: [module-1, module-2, …] — or omit for simple pages
+
+### Repetitive Content → MixDB Tables *(if content repeats across pages)*
+<!-- Optional — only if the site has content that appears in multiple places or needs
+     centralized editing. Skip for sites with purely static/one-off content. -->
+- [Content type] — on [pages]; columns: [col1, col2, …] — or omit if none
 
 ### Content Types (→ MixDB tables)
 - [Products / Blog Posts / Services / Team Members / Testimonials]
 
-### Forms Needed
-- [Contact / Newsletter / Registration]
+### Forms Needed:         [Contact / Newsletter / Registration — or none]
+<!-- For each form: map to a MixDB table + folderType="Forms" template. Skip if no forms. -->
 
 ### Special Requirements
 - [Multi-language / Member portal / E-commerce]
