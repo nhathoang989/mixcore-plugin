@@ -8,7 +8,7 @@ How to author and render content in multiple cultures (languages) with Mixcore. 
 
 1. **Check the existing cultures.** Call `list_cultures`. Is the tenant single- or multi-culture, and what are the exact codes (`en-us`, `vi-vn`)? The first culture is the default. A single-culture site applies no filtering — adding a 2nd culture is what turns multilingual on (§1). Use the full registered code everywhere — `en` ≠ `en-us` (§4).
 2. **Check whether the template is already translated.** Read the master/page template. Does it use `@L["key"]` keys (translated, option 2 §6) or hardcoded literals / `@if (culture == "vi-vn")` branches (NOT translated — both are hardcoding, §6)? If not translated, localize it via `@L` + `set_language_content` before authoring per-culture content. Cross-check the keys exist with `list_languages`.
-3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `@L.Get(key, culture)` (issue #344; interim = inline path map).
+3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `L.GetKey(path)` (path → key) + `L.GetForCulture(key, culture)` (key → target-culture URL) — see §5.
 4. **Check the navigation URLs are translated.** Every regular nav / menu / footer link must localize **both label and URL** as language keys — `<a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a>` — never a hardcoded `href="/menu"` (that 404s in vi). The `nav.*.url` key holds the active culture's full path (vi `/thuc-don`); links stay plain (no `?culture=`; the cookie holds the culture). A nav menu hardcoded to one culture's slugs is the most common multilingual break after the switcher itself (§6).
 
 ## 1. Cultures
@@ -75,24 +75,20 @@ The route URL is itself a **localized language key**, stored right next to its l
 <li><a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a></li>   @* en → /menu Menu · vi → /thuc-don Thực Đơn *@
 ```
 
-The switcher needs the **target** culture's value of that URL key. `IMixLocalizer` currently resolves the *current* culture only — `this[key]` / `Get(key, fallback)`, **no culture-override overload** (tracked as **issue #344**, which adds `Get(key, culture, fallback)`). Once #344 ships:
+The switcher needs the **target** culture's value of that URL key. `IMixLocalizer` provides two methods for this (beyond the current-culture `this[key]` / `Get(key, fallback)`):
 
-```cshtml
-<a href="@(L.Get("nav.menu.url", "en-us"))?culture=en-us" class="lang-link">EN</a>
-<a href="@(L.Get("nav.menu.url", "vi-vn"))?culture=vi-vn" class="lang-link">VN</a>
-```
+| Method | Purpose |
+|---|---|
+| `string? GetKey(string value)` | **Reverse lookup** — the key whose value (current culture, then default) equals `value`. Maps the request path back to its `nav.*.url` key. Returns `null` if unmatched; first match wins when a value is shared. |
+| `string GetForCulture(string key, string culture, string? fallback = null)` | The key's value in an **explicit** culture (the language switcher's target). Empty culture = current culture. **Named distinctly from `Get`** because a 2-arg `Get(key, culture)` would silently bind to the existing `Get(key, fallback)` overload. |
 
-**Interim (until #344)** — an inline `(en, vi)` path map keyed by the current path:
+Canonical switcher — `GetKey` the current path, then `GetForCulture` each target culture. No path map to maintain; it covers **every** `nav.*.url` key automatically:
 
 ```cshtml
 @{
-    // (en, vi) FULL-PATH pairs — match the current path by EITHER culture, link to the TARGET path.
-    var routePairs = new[] { ("/","/"), ("/menu","/thuc-don"), ("/about","/ve-chung-toi") };
-    var cur = Context.Request.Path.ToString(); if (string.IsNullOrEmpty(cur)) cur = "/";
-    string enPath = "/", viPath = "/";   // fallback: home → /?culture=
-    foreach (var (en, vi) in routePairs)
-        if (string.Equals(cur, en, StringComparison.OrdinalIgnoreCase) || string.Equals(cur, vi, StringComparison.OrdinalIgnoreCase))
-        { enPath = en; viPath = vi; break; }
+    var switchKey = L.GetKey(Context.Request.Path.ToString());   // "/thuc-don" → "nav.menu.url"
+    var enPath = string.IsNullOrEmpty(switchKey) ? "/" : L.GetForCulture(switchKey, "en-us", "/");
+    var viPath = string.IsNullOrEmpty(switchKey) ? "/" : L.GetForCulture(switchKey, "vi-vn", "/");
 }
 <a href="@(enPath)?culture=en-us" class="lang-link">EN</a>
 <a href="@(viPath)?culture=vi-vn" class="lang-link">VN</a>
@@ -128,7 +124,7 @@ Create the pair with `set_language_content`: `set_language_content("nav.menu.url
 
 For hardcoded UI labels (nav, buttons), use localization **keys** instead of literals so one template serves every culture:
 
-- In a Razor template: `@inject Mix.Lib.Services.IMixLocalizer L` then `@L["nav.home"]`. It resolves the key for the **current request culture only** (no culture-override overload — `this[key]` / `Get(key, fallback)`), falling back current-culture → default-culture → the key itself (never blank). For a value inside an HTML attribute use the explicit form `@(L["key"])` (the `["..."]` quotes confuse the implicit-expression parser inside `attr="..."`).
+- In a Razor template: `@inject Mix.Lib.Services.IMixLocalizer L` then `@L["nav.home"]`. `this[key]` / `Get(key, fallback)` resolve the **current request culture** (falling back current-culture → default-culture → the key itself, never blank); `GetForCulture(key, culture, fallback)` resolves an **explicit** culture (the switcher's target, §5); `GetKey(value)` reverse-looks-up a value to its key. For a value inside an HTML attribute use the explicit form `@(L["key"])` (the `["..."]` quotes confuse the implicit-expression parser inside `attr="..."`).
 - Create/set the key/value strings via the **language MCP tools** (snake_case): `set_language_content(systemName, specificulture, content)` — **creates the key on demand** + upserts the translation in one call (the easiest path); plus `create_language`, `list_languages`, `get_language_contents`, `delete_language`. Or the **portal** `/p` → **Content → Languages** (key × culture grid). Or **REST**: `POST /api/v1/rest/languages` to create the key, then `PUT /api/v1/rest/languages/content` per culture — ⚠️ the REST PUT returns **404 if the key doesn't exist yet** (unlike the MCP tool, it does NOT create on demand). All require an Admin/Editor JWT; the `X-Api-Key` is MCP-only. Edits take effect live (the localization cache busts on every write).
 
 ### Worked example — converting a hardcoded-language template
