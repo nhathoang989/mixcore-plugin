@@ -2,6 +2,15 @@
 
 How to author and render content in multiple cultures (languages) with Mixcore. Load this when a task mentions multiple languages, cultures, translations, `specificulture`, a language/culture switcher, or `@L["..."]`.
 
+## 0. 🚨 Pre-flight — run this BEFORE any language / multilingual work
+
+🚨 **CRITICAL RULE: never start translating or editing a multilingual template before completing these three checks.** Skipping them is the cause of "the page title changed but the labels didn't", duplicate-slug 400s, and switcher 404s.
+
+1. **Check the existing cultures.** Call `list_cultures`. Is the tenant single- or multi-culture, and what are the exact codes (`en-us`, `vi-vn`)? The first culture is the default. A single-culture site applies no filtering — adding a 2nd culture is what turns multilingual on (§1). Use the full registered code everywhere — `en` ≠ `en-us` (§4).
+2. **Check whether the template is already translated.** Read the master/page template. Does it use `@L["key"]` keys (translated, option 2 §6) or hardcoded literals / `@if (culture == "vi-vn")` branches (NOT translated — both are hardcoding, §6)? If not translated, localize it via `@L` + `set_language_content` before authoring per-culture content. Cross-check the keys exist with `list_languages`.
+3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `@L.Get(key, culture)` (issue #344; interim = inline path map).
+4. **Check the navigation URLs are translated.** Every regular nav / menu / footer link must localize **both label and URL** as language keys — `<a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a>` — never a hardcoded `href="/menu"` (that 404s in vi). The `nav.*.url` key holds the active culture's full path (vi `/thuc-don`); links stay plain (no `?culture=`; the cookie holds the culture). A nav menu hardcoded to one culture's slugs is the most common multilingual break after the switcher itself (§6).
+
 ## 1. Cultures
 
 - Each tenant has one or more cultures. The **first** culture is the **default**. Create one with `create_culture(specificulture, displayName)` (e.g. `en-us`, `vi-vn`).
@@ -58,27 +67,42 @@ For a multilingual tenant (>1 culture), the server resolves the request culture 
 
 Show it only when the tenant has >1 culture, and use the **full** culture code in `?culture=` (see the exact-match rule above).
 
-🚨 **A switcher that only appends `?culture=` to the current path 404s on any page whose slug differs per culture.** Pages store one slug per culture (e.g. en `/menu`, vi `/thuc-don`), so `/menu?culture=vi-vn` resolves no vi page named `menu`. Each switcher link must point at the **target culture's slug**:
+🚨 **A switcher that only appends `?culture=` to the current path 404s on any page whose slug differs per culture.** Pages store one slug per culture (e.g. en `/menu`, vi `/thuc-don`), so `/menu?culture=vi-vn` resolves no vi page named `menu`. The correct algorithm is **current path → route key → that key's URL in the TARGET culture → switch link**.
 
-- **Default (auto-sync) slugs** are suffixed `"<seo>-<culture>"` (§7), so the target slug is derivable from the default-culture slug.
-- **Custom per-culture slugs** (hand-set, e.g. `thuc-don`) need an explicit **slug map** in the master. `@L` cannot help here — `IMixLocalizer` resolves the *current* culture only (no `L["key", culture]` overload), so it can't emit the other culture's slug.
+The route URL is itself a **localized language key**, stored right next to its label (§6): `nav.menu` = the label, `nav.menu.url` = the full path per culture (`/menu` in `en-us`, `/thuc-don` in `vi-vn`). So a regular nav link localizes **both**:
+
+```cshtml
+<li><a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a></li>   @* en → /menu Menu · vi → /thuc-don Thực Đơn *@
+```
+
+The switcher needs the **target** culture's value of that URL key. `IMixLocalizer` currently resolves the *current* culture only — `this[key]` / `Get(key, fallback)`, **no culture-override overload** (tracked as **issue #344**, which adds `Get(key, culture, fallback)`). Once #344 ships:
+
+```cshtml
+<a href="@(L.Get("nav.menu.url", "en-us"))?culture=en-us" class="lang-link">EN</a>
+<a href="@(L.Get("nav.menu.url", "vi-vn"))?culture=vi-vn" class="lang-link">VN</a>
+```
+
+**Interim (until #344)** — an inline `(en, vi)` path map keyed by the current path:
 
 ```cshtml
 @{
-    // (en, vi) slug pairs — match the current path by EITHER culture's slug, link to the TARGET slug.
-    var slugPairs = new[] { ("/menu","/thuc-don"), ("/about","/ve-chung-toi") };
-    var cur = Context.Request.Path.ToString().TrimEnd('/'); if (cur == "") cur = "/";
-    string enSlug = "/", viSlug = "/";   // fallback: home → /?culture=
-    foreach (var (en, vi) in slugPairs)
+    // (en, vi) FULL-PATH pairs — match the current path by EITHER culture, link to the TARGET path.
+    var routePairs = new[] { ("/","/"), ("/menu","/thuc-don"), ("/about","/ve-chung-toi") };
+    var cur = Context.Request.Path.ToString(); if (string.IsNullOrEmpty(cur)) cur = "/";
+    string enPath = "/", viPath = "/";   // fallback: home → /?culture=
+    foreach (var (en, vi) in routePairs)
         if (string.Equals(cur, en, StringComparison.OrdinalIgnoreCase) || string.Equals(cur, vi, StringComparison.OrdinalIgnoreCase))
-        { enSlug = en; viSlug = vi; break; }
+        { enPath = en; viPath = vi; break; }
 }
-<a href="@(viSlug)?culture=vi-vn" class="lang-link">VI</a>
-<span>|</span>
-<a href="@(enSlug)?culture=en-us" class="lang-link">EN</a>
+<a href="@(enPath)?culture=en-us" class="lang-link">EN</a>
+<a href="@(viPath)?culture=vi-vn" class="lang-link">VN</a>
 ```
 
+🚨 **A route URL value is the *complete* target path — emit it verbatim; never re-prepend a culture segment.** Mixcore carries culture in `?culture=` + the `mix_culture` cookie, **not** in a URL path segment — there is **no `/en/`-style culture routing** (the only path prefix middleware reads is `/t/{slug}/`, for *tenant* resolution). If a site happens to give one culture prefixed slugs (en `/en/menu` vs vi `/thuc-don`), that `/en` is just part of that page's stored `seoName` and is **already inside the `nav.*.url` value**. So `"/en" + L["nav.menu.url"]` on a value that is already `/en/menu` yields `/en/en/menu` (404). The key value is the whole href — emit it as-is (plus `?culture=…` on the switcher), prepending nothing.
+
 `TenantResolutionMiddleware` **persists a valid `?culture=` to the `mix_culture` cookie automatically**, so the chosen culture survives later *plain* navigation (the per-culture nav slugs then resolve in the right culture instead of 404ing). No JS cookie-setting needed — a plain `?culture=` switch link is enough. The slug map above still matters so the switch *link itself* lands on the target culture's slug.
+
+🚨 **Only the switcher link carries `?culture=`. Regular nav, menu, and footer links use the plain per-culture slug** (`/thuc-don`, `/menu`, …) — the `mix_culture` cookie set by the switcher keeps every later plain link in that culture. Do **not** append `?culture=` to every URL on the page: it's noise, the cookie already handles persistence, and it's the wrong instinct to "make each link safe." The switcher is the *one* link whose job is to force a culture, so it's the only one that needs the query.
 
 ## 6. Translating a template — two options
 
@@ -88,6 +112,17 @@ When the template renders one language but you need it in others, pick one:
 2. **One template + the `@L` localizer** *(default — recommended)* — keep a single template; replace hardcoded labels with `@L["key"]` and store the per-culture strings as language keys. One template serves every culture; translators edit strings, not Razor. Use this whenever the layout is the same across cultures (the usual case).
 
 Default to **option 2**; reach for option 1 only for genuinely divergent per-culture layouts.
+
+🚨 **Per-culture `@if (culture == "vi-vn") { "Trang Chủ" } else { "Home" }` label branches ARE hardcoding** — both languages live in the Razor and every new string forces a template edit. For a multilingual site that is **wrong**: translate the template (option 2) with one `@L["nav.home"]` key per label and store the strings as language content. The moment a tenant has >1 culture, replace hardcoded literals (and per-culture `@if`/`else` text branches) with `@L[...]` keys. Hardcoded literals are only acceptable on a single-culture site.
+
+🚨 **A nav link's URL is a language key too, not just its label.** Don't hardcode `href="/menu"` — store the per-culture path as `nav.<name>.url` next to the label `nav.<name>`, so the link localizes end to end:
+
+```cshtml
+✅  <li><a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a></li>   @* both href and text are keys *@
+❌  <li><a href="/menu">@(L["nav.menu"])</a></li>                  @* hardcoded en slug → 404 in vi *@
+```
+
+Create the pair with `set_language_content`: `set_language_content("nav.menu.url","en-us","/menu")` + `set_language_content("nav.menu.url","vi-vn","/thuc-don")`, alongside `nav.menu` = `Menu`/`Thực Đơn`. The switcher (§5) reuses the same `nav.*.url` keys via the target culture.
 
 ### Option 2 — the i18n localizer (`@L`)
 
