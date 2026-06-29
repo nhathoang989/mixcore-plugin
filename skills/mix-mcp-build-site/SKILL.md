@@ -210,6 +210,8 @@ Document every table that needs to be created. Always use `BrandName` prefix in 
 
 > See `mixcore:mix-mcp-db` skill for `CreateMixDbTableFromPrompt` parameter format and relationship rules.
 
+> 🌐 **Multilingual build:** custom MixDB tables are NOT culture-aware on their own — a table renders the same rows for every culture. For any table whose **displayed text differs per culture**, add a `specificulture` (String) column and seed **one row per (item, culture)**, then filter by `Context.Items["Specificulture"]` in the template. Add the column on this schema pass (before seeding). See `mixcore:mix-mcp-cms` → `references/multilingual.md` §3b.
+
 ### 1c. `wwwroot/mixcontent/planning/site-architecture.md`
 
 ```markdown

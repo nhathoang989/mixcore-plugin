@@ -22,6 +22,25 @@ When a slug/system-name exists in several cultures, pass the culture to disambig
 - MCP: `get_page_content_by_seo_name(seoName, specificulture)`, `get_post_content_by_seo_name(seoName, specificulture)`, `get_module_content_by_system_name(systemName, specificulture)`. The `list_*` tools also take an optional `specificulture` filter.
 - REST: `GET /api/v1/rest/{pages|posts|modules}/by-seo-name/{slug}?specificulture=vi-vn` (modules: `/by-system-name/{name}?specificulture=`).
 
+## 3b. MixDB-driven content — add a `specificulture` column
+
+🚨 **Custom MixDB tables are NOT culture-aware on their own.** Pages/posts/modules get per-culture rows automatically (§2/§7), but a hand-built table (`mix_products`, `mix_news`, `mix_testimonials`, …) has no culture dimension — a template renders the **same rows for every culture**, so its text shows one language regardless of the active culture.
+
+When building a multilingual site, give any table whose **displayed text differs per culture** a `specificulture` column and store **one row per (item, culture)**, mirroring the Entity/EntityContent pattern:
+
+- Add the column on the schema pass: `create_column(tableName, "specificulture", "Text")` (varchar) — do this **before** seeding (re-migrating a populated table can drop rows).
+- Seed one row per culture (`en-us`, `vi-vn`, …). Culture-neutral fields (price, image URL, coordinates) can stay duplicated or be split into a shared parent table — only split the text that actually translates.
+- **Filter by the resolved request culture** in the template/query — add `specificulture` to the filter array:
+
+```cshtml
+@{ var culture = Context.Items["Specificulture"] as string ?? "en-us";
+   var filter = "[{\"fieldName\":\"status\",\"value\":\"Published\",\"operator\":\"=\"},"
+              + "{\"fieldName\":\"specificulture\",\"value\":\"" + culture + "\",\"operator\":\"=\"}]";
+   var products = await DbService.GetDataAsync("mix_products", filter); }
+```
+
+Without the column, MixDB text is frozen to whatever single language was seeded (and locale-specific values stay stuck). Add it during the schema phase of a multilingual build.
+
 ## 4. Rendering resolves the request culture
 
 For a multilingual tenant (>1 culture), the server resolves the request culture and serves that culture's content. Precedence: **`?culture=` query → `mix_culture` cookie → `Accept-Language` (q-value aware) → tenant default**, each validated against the tenant's cultures. A single-culture tenant skips this entirely.

@@ -92,6 +92,18 @@ MixDB Table (MixDbTable)         — schema stored in the main CMS DB
 
 ---
 
+## Multilingual tables — add a `specificulture` column
+
+🚨 **Custom MixDB tables are NOT culture-aware.** A table renders the **same rows for every culture**, so its text is frozen to whatever language was seeded — pages/posts/modules get per-culture rows automatically, custom tables do not. On a multilingual site (tenant with >1 culture), any table whose **displayed text differs per culture** needs a `specificulture` (`String`) column and **one row per (item, culture)**:
+
+- Add it on the schema pass — include `{"systemName":"specificulture","displayName":"Culture","dataType":"String"}` in `columnsJson`, or `create_column(tableId, "specificulture", "String")` — **before seeding** (`migrate` re-creates the table and drops rows).
+- Seed one row per culture (`en-us`, `vi-vn`, …). Culture-neutral fields (price, image URL, coordinates) can stay duplicated or be split into a shared parent table linked by a relationship — only the translating text needs a per-culture row.
+- Filter by the request culture when reading: add `{"fieldName":"specificulture","value":"<culture>","operator":"="}` to the `query_table` filter (or the template's `GetDataAsync` filter). The render culture is `Context.Items["Specificulture"]`.
+
+Mirrors the page/post/module per-culture pattern. See `mixcore:mix-mcp-cms` → `references/multilingual.md` §3b.
+
+---
+
 ## Workflow: Create a table with known schema
 
 ### Step 1 — Check if the table already exists
