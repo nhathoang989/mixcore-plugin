@@ -255,6 +255,27 @@ protected override async Task SaveEntityRelationshipAsync(
 }
 ```
 
+### 🚨 CRITICAL RULE: register a concrete CQRS handler per ViewModel
+
+`GenericViewModelHandlers<TView, TDbContext, TEntity, TPrimaryKey>` (the base that implements every
+`SaveCommand`/`GetFirstQuery`/`GetSingleQuery`/… handler) is **generic** — MediatR's
+`RegisterServicesFromAssembly` only registers **concrete closed** handlers. So **every new ViewModel used
+through `CrudService`/`CrudControllerBase` MUST have a one-line concrete handler subclass**, or the first
+CRUD call throws at runtime (the build stays clean): `No service for type 'IRequestHandler<GetFirstQuery<…>>'`.
+
+```csharp
+// src/.../Handlers/ProductViewModelHandler.cs  (one class per ViewModel)
+public sealed class ProductViewModelHandler
+    : GenericViewModelHandlers<ProductViewModel, MixCmsContext, Product, int>
+{
+    public ProductViewModelHandler(UnitOfWorkInfo<MixCmsContext> uow, MixCacheService cacheService)
+        : base(uow, cacheService) { }
+}
+```
+
+Place it in an assembly scanned by `AddMixCqrs(...)` (e.g. `mix.lib`, alongside `MixCultureViewModelHandler`).
+One handler class covers both commands and queries for that ViewModel.
+
 ### Services overview
 
 | Service | Package | Use for |

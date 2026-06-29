@@ -43,6 +43,7 @@ If `ValidateTemplate` returns `skipped:true` (`.liquid` template), that's fine �
 | **Design system format & gate** — resolve/author/bootstrap `design.md`, token→CSS-var materialization | [references/design-system.md](references/design-system.md) |
 | **Global default `design.md`** — baseline tokens used when a site has no override | [references/design.md](references/design.md) |
 | **Form templates** — `frm-mixdb-ajax`, JS handler, hidden fields, API endpoint | [references/form-templates.md](references/form-templates.md) |
+| **Multilingual site** — cultures, per-culture content (`specificulture` on create + read), culture switcher, `@L` i18n localizer, Languages portal | [references/multilingual.md](references/multilingual.md) |
 | **Live MCP tool signatures and enums** | Use `ToolSearch` with `select:{MCP_PREFIX}<tool_name>` — schemas loaded directly from server |
 | **AI chat widgets** — SiteKnowledgeHub integration, SignalR frontend, drawer pattern | Use `mixcore:mix-mcp-ai` skill |
 
