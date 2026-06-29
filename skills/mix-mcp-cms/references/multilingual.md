@@ -26,16 +26,40 @@ When a slug/system-name exists in several cultures, pass the culture to disambig
 
 For a multilingual tenant (>1 culture), the server resolves the request culture and serves that culture's content. Precedence: **`?culture=` query → `mix_culture` cookie → `Accept-Language` (q-value aware) → tenant default**, each validated against the tenant's cultures. A single-culture tenant skips this entirely.
 
+🚨 **Read the resolved culture in a template from `Context.Items["Specificulture"]`** — `TenantResolutionMiddleware` sets only this `HttpContext.Items` entry; it does **NOT** set `Thread.CurrentCulture`. So `System.Globalization.CultureInfo.CurrentCulture` stays the server default and any `CultureInfo.CurrentCulture.Name.StartsWith("vi")` check never flips (the page *title* may still change because content-row selection uses the resolved culture — that masks the bug). Use:
+
+```cshtml
+@{ var culture = Context.Items["Specificulture"] as string ?? "en-us";
+   var isVietnamese = culture.StartsWith("vi", StringComparison.OrdinalIgnoreCase); }
+```
+
+🚨 **Culture codes match EXACTLY** (case-insensitive) against registered cultures — `?culture=en` does NOT match a registered `en-us`; it silently falls back to the default. Always use the full registered code (`en-us`, `vi-vn`).
+
 ## 5. Culture switcher (template)
 
-Add a switcher to the master layout that sets the choice and reloads. Show it only when the tenant has >1 culture. Set both the cookie (site-wide persistence) and `?culture=` (shareable URL):
+Show it only when the tenant has >1 culture, and use the **full** culture code in `?culture=` (see the exact-match rule above).
 
-```html
-<select onchange="(function(c){document.cookie='mix_culture='+c+';path=/;max-age=31536000';var u=new URL(location.href);u.searchParams.set('culture',c);location.href=u;})(this.value)">
-  <option value="en-us">English</option>
-  <option value="vi-vn">Tiếng Việt</option>
-</select>
+🚨 **A switcher that only appends `?culture=` to the current path 404s on any page whose slug differs per culture.** Pages store one slug per culture (e.g. en `/menu`, vi `/thuc-don`), so `/menu?culture=vi-vn` resolves no vi page named `menu`. Each switcher link must point at the **target culture's slug**:
+
+- **Default (auto-sync) slugs** are suffixed `"<seo>-<culture>"` (§7), so the target slug is derivable from the default-culture slug.
+- **Custom per-culture slugs** (hand-set, e.g. `thuc-don`) need an explicit **slug map** in the master. `@L` cannot help here — `IMixLocalizer` resolves the *current* culture only (no `L["key", culture]` overload), so it can't emit the other culture's slug.
+
+```cshtml
+@{
+    // (en, vi) slug pairs — match the current path by EITHER culture's slug, link to the TARGET slug.
+    var slugPairs = new[] { ("/menu","/thuc-don"), ("/about","/ve-chung-toi") };
+    var cur = Context.Request.Path.ToString().TrimEnd('/'); if (cur == "") cur = "/";
+    string enSlug = "/", viSlug = "/";   // fallback: home → /?culture=
+    foreach (var (en, vi) in slugPairs)
+        if (string.Equals(cur, en, StringComparison.OrdinalIgnoreCase) || string.Equals(cur, vi, StringComparison.OrdinalIgnoreCase))
+        { enSlug = en; viSlug = vi; break; }
+}
+<a href="@(viSlug)?culture=vi-vn" class="lang-link">VI</a>
+<span>|</span>
+<a href="@(enSlug)?culture=en-us" class="lang-link">EN</a>
 ```
+
+`TenantResolutionMiddleware` **persists a valid `?culture=` to the `mix_culture` cookie automatically**, so the chosen culture survives later *plain* navigation (the per-culture nav slugs then resolve in the right culture instead of 404ing). No JS cookie-setting needed — a plain `?culture=` switch link is enough. The slug map above still matters so the switch *link itself* lands on the target culture's slug.
 
 ## 6. Translating a template — two options
 
@@ -50,8 +74,8 @@ Default to **option 2**; reach for option 1 only for genuinely divergent per-cul
 
 For hardcoded UI labels (nav, buttons), use localization **keys** instead of literals so one template serves every culture:
 
-- In a Razor template: `@inject Mix.Lib.Services.IMixLocalizer L` then `@L["nav.home"]`. It resolves the key for the current request culture, falling back current-culture → default-culture → the key itself (never blank).
-- Manage the key/value strings in the **portal**: `/p` → **Content → Languages** (key × culture grid). Or via MCP `set_language_content(systemName, specificulture, content)` (creates the key on demand), or REST `PUT /api/v1/rest/languages/content`. Edits take effect live (cache busts on write).
+- In a Razor template: `@inject Mix.Lib.Services.IMixLocalizer L` then `@L["nav.home"]`. It resolves the key for the **current request culture only** (no culture-override overload — `this[key]` / `Get(key, fallback)`), falling back current-culture → default-culture → the key itself (never blank). For a value inside an HTML attribute use the explicit form `@(L["key"])` (the `["..."]` quotes confuse the implicit-expression parser inside `attr="..."`).
+- Create/set the key/value strings via the **language MCP tools** (snake_case): `set_language_content(systemName, specificulture, content)` — **creates the key on demand** + upserts the translation in one call (the easiest path); plus `create_language`, `list_languages`, `get_language_contents`, `delete_language`. Or the **portal** `/p` → **Content → Languages** (key × culture grid). Or **REST**: `POST /api/v1/rest/languages` to create the key, then `PUT /api/v1/rest/languages/content` per culture — ⚠️ the REST PUT returns **404 if the key doesn't exist yet** (unlike the MCP tool, it does NOT create on demand). All require an Admin/Editor JWT; the `X-Api-Key` is MCP-only. Edits take effect live (the localization cache busts on every write).
 
 ### Worked example — converting a hardcoded-language template
 
