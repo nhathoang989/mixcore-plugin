@@ -40,6 +40,35 @@ See §5 for master section-count rules and the `Styles`/`Scripts`-field mechanic
 
 ---
 
+## 0.6 🚨 ALL CSS wrapped in `<style>…</style>`, ALL JS wrapped in `<script>…</script>`
+
+🚨 **CRITICAL RULE: every block of CSS you emit MUST be wrapped in `<style>…</style>` tags, and every block of JavaScript MUST be wrapped in `<script>…</script>` tags — no exceptions.** Mixcore emits the `Styles`/`Scripts` fields and inline body content **raw** (no auto-wrapping), so bare CSS or JS without its tag renders as **visible literal text** on the page (you'll see your CSS rules or JS source printed in the body), not as applied styling/behavior.
+
+This applies to **both** delivery mechanisms (see §0.5 / §5):
+
+| Where the CSS/JS goes | Must include the tag? |
+|---|---|
+| Template **`Styles` field** (`CreateTemplate(styles: …)`) | ✅ Value MUST start with `<style>` and end with `</style>` — emitted raw into `<head>` |
+| Template **`Scripts` field** (`CreateTemplate(scripts: …)`) | ✅ Value MUST start with `<script>` and end with `</script>` — emitted raw before `</body>` |
+| **Inline in the body** (renders via `@RenderBody`) | ✅ Wrap in `<style>…</style>` / `<script>…</script>` exactly as in any HTML page |
+| Widget **`Content` field** (rendered as a partial, §9) | ✅ Put the full `<style>…</style>` / `<script>…</script>` blocks here — `Styles`/`Scripts` params are dropped |
+
+```cshtml
+✅  CreateTemplate(styles: "<style>.hero { padding: 4rem 0; } @@media (max-width: 768px) { .hero { padding: 2rem 0; } }</style>")
+✅  CreateTemplate(scripts: "<script>document.querySelector('.menu-toggle').addEventListener('click', …);</script>")
+✅  <style>.card { border-radius: 8px; }</style>      @* inline in body *@
+✅  <script>console.log('ready');</script>            @* inline in body *@
+
+❌  CreateTemplate(styles: ".hero { padding: 4rem 0; }")          — no <style> tag → printed as text in <head>
+❌  CreateTemplate(scripts: "document.querySelector('.x')…")     — no <script> tag → printed as text on the page
+❌  .card { border-radius: 8px; }                                — bare CSS in the body → visible literal text
+❌  document.addEventListener('DOMContentLoaded', …)             — bare JS in the body → visible literal text
+```
+
+CSS at-rules inside these blocks still follow §2: `@@media`/`@@keyframes` (doubled) when the block lives in a `.cshtml` body or is inline; **plain** `@media`/`@keyframes` when passed in the raw `Styles`/`Scripts` fields. `validate_template` is compile-only and does **NOT** catch a missing `<style>`/`<script>` wrapper — this rule is the only guard.
+
+---
+
 ## 1. Mandatory `@model` declarations
 
 | Template type | folderType | `@model` |

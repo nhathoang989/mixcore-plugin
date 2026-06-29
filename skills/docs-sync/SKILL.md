@@ -249,6 +249,14 @@ summary: "[1-2 sentence summary for search indexing]"
 
 ## Writing Conventions
 
+🚨 **CRITICAL RULE: never let a single document exceed 10,000 characters.** Applies to every file you create or edit in either location — skill files, `references/` files, `system-prompts/instructions/**`, runtime prompts, and `wiki/` docs. Oversized files index poorly (the RAG chunker splits mid-thought) and blow the context budget when loaded as a system prompt. When a doc approaches the limit:
+
+- **Split by topic** into focused sibling files and cross-link them — exactly as `instructions/templates/` already does (`razor-syntax-guidelines.md` + `razor-encoding-security.md` + `razor-ai-workflow.md`).
+- For a thin-index SKILL.md, push depth into a new `references/` file and link it; keep the index short.
+- After splitting, update the index (`start-here.md` / the skill's reference table) **and** the File-Mapping table so both locations still mirror.
+
+Check before saving: a file at ~10 KB on disk is at the limit (1 byte ≈ 1 char for ASCII markdown — `wc -c <file>`). If an existing counterpart is already over, prefer splitting it over appending more.
+
 ### For skill files (`plugins/mixcore/skills/`)
 
 - **Audience**: You (Claude Code agent in a developer session)
