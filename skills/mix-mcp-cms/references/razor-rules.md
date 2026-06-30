@@ -313,6 +313,33 @@ The `<` in generic method calls confuses Razor's parser. Always wrap `Get<T>()` 
 }
 ```
 
+### 🚨 Anti-pattern: concatenating `"../Modules/"` with an absolute `TemplateFilePath`
+
+**This is the single most common module-rendering crash.** `module.TemplateFilePath` is ALREADY an absolute path (starts with `/wwwroot/mixcontent/templates/…` or `/Templates/…`). Concatenating a `"../"` prefix with it produces a garbage doubled path that cannot resolve:
+
+```cshtml
+@* ❌ CRASHES — TemplateFilePath is already absolute; "../Modules/" + absolute → garbage path *@
+@foreach (var md in Model.Modules)
+{
+    @await Html.PartialAsync("../Modules/" + md.TemplateFilePath, md)
+}
+@* Searched path becomes: …/lumora/Modules/wwwroot/mixcontent/templates/1/lumora/Modules/HeroSection.cshtml *@
+
+@* ❌ ALSO CRASHES — same root cause, different prefix *@
+@await Html.PartialAsync("../Modules/" + module.TemplateFilePath, module)
+```
+
+**The error you get:**
+```
+InvalidOperationException: The partial view '../Modules//wwwroot/mixcontent/templates/1/lumora/Modules/HeroSection.cshtml'
+was not found. The following locations were searched:
+/wwwroot/mixcontent/templates/1/lumora/Modules/wwwroot/mixcontent/templates/1/lumora/Modules/HeroSection.cshtml
+```
+
+Note the tell-tale double slash `//` and the duplicated path segment — those are the diagnostic signature of this bug.
+
+**The rule:** `../Modules/FileName.cshtml` is for **hand-authored literal partials** whose file name you know at write time. `module.TemplateFilePath` is for **dynamically-resolved module templates** — pass it bare, no prefix, no concatenation. Never mix the two patterns.
+
 🚨 **When you update a page template that renders modules, also check the linked module templates.** The page template's wrapper markup (grid, spacing, responsive breakpoints, CSS classes) must be compatible with each module template's output. A change to the page's container structure may require corresponding updates to module templates. See [content-creation.md → Update Workflow](content-creation.md).
 
 ### Recommended: add ordering and error guards

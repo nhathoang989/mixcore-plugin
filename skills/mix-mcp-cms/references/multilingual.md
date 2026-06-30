@@ -4,16 +4,21 @@ How to author and render content in multiple cultures (languages) with Mixcore. 
 
 ## 0. 🚨 Pre-flight — run this BEFORE any language / multilingual work
 
-🚨 **CRITICAL RULE: never start translating or editing a multilingual template before completing these three checks.** Skipping them is the cause of "the page title changed but the labels didn't", duplicate-slug 400s, and switcher 404s.
+🚨 **CRITICAL RULE: never start translating or editing a multilingual template before completing these five checks.** Skipping them is the cause of "the page title changed but the labels didn't", duplicate-slug 400s, switcher 404s, blank module regions, and untranslated MixDB content.
 
 1. **Check the existing cultures.** Call `list_cultures`. Is the tenant single- or multi-culture, and what are the exact codes (`en-us`, `vi-vn`)? The first culture is the default. A single-culture site applies no filtering — adding a 2nd culture is what turns multilingual on (§1). Use the full registered code everywhere — `en` ≠ `en-us` (§4).
 2. **Check whether the template is already translated.** Read the master/page template. Does it use `@L["key"]` keys (translated, option 2 §6) or hardcoded literals / `@if (culture == "vi-vn")` branches (NOT translated — both are hardcoding, §6)? If not translated, localize it via `@L` + `set_language_content` before authoring per-culture content. Cross-check the keys exist with `list_languages`.
 3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `L.GetKey(path)` (path → key) + `L.GetForCulture(key, culture)` (key → target-culture URL) — see §5.
 4. **Check the navigation URLs are translated.** Every regular nav / menu / footer link must localize **both label and URL** as language keys — `<a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a>` — never a hardcoded `href="/menu"` (that 404s in vi). The `nav.*.url` key holds the active culture's full path (vi `/thuc-don`); links stay plain (no `?culture=`; the cookie holds the culture). A nav menu hardcoded to one culture's slugs is the most common multilingual break after the switcher itself (§6).
 
+After `create_culture`, a 5th step is required — translating the auto-cloned content:
+
+5. **Translate the auto-cloned content.** `create_culture` auto-clones every default-culture page, post, and module into the new culture (§7). The clones have the **default culture's content** — they are duplicates, not translations. List them with `list_page_contents(specificulture: "vi-vn")` / `list_post_contents` / `list_module_contents`, then translate each with `update_page_content(id, title: …, content: …)` etc. Translate language keys with `set_language_content(key, "vi-vn", "…")`. See §7 "After creating a culture — translate the clones."
+
 ## 1. Cultures
 
 - Each tenant has one or more cultures. The **first** culture is the **default**. Create one with `create_culture(specificulture, displayName)` (e.g. `en-us`, `vi-vn`).
+- 🚨 **`create_culture` is NOT the finish line — it auto-clones content as duplicates, not translations.** After calling `create_culture`, you MUST follow the full workflow in §7 "After creating a culture — translate the clones" (5 steps: list clones, clone page-module associations, translate pages/posts/modules, translate language keys, handle MixDB tables, verify). Skipping these steps leaves the new culture with untranslated default-language content and broken module regions.
 - A site with a single culture behaves exactly like a non-multilingual site — no culture filtering is applied (see §5). You only "go multilingual" by adding a 2nd culture.
 
 ## 2. Per-culture content (Entity / EntityContent)
@@ -146,6 +151,86 @@ The server keeps cultures in sync automatically; you rarely hand-author every cu
 - **Culture create → clone.** Creating a new culture clones **all** the default culture's pages/posts/modules (suffixed slugs, own parents) **and** every language key into the new culture. Deleting a culture removes all of that culture's page/post/module/language content.
 - **Language key create → fan-out.** Creating a key fans out an (empty) content row per culture; deleting the key cascades all its translations.
 - **Implication:** to add a language, just create the culture (or author the default-culture content) — the siblings appear pre-populated as copies of the source; then edit each translation in place (the suffixed slug is editable). Don't hand-create one page per culture.
+
+### After creating a culture — translate the clones (step-by-step)
+
+`create_culture` auto-clones every default-culture page, post, and module into the new culture. Each clone is a **copy** — same `title`, `content`, `excerpt` — but stamped with the new culture and given a culture-suffixed slug (`about` → `about-vi-vn`). **The clones are duplicates, not translations.** You must translate each one:
+
+**Step 1 — List the cloned content** for the new culture:
+
+```
+list_page_contents(specificulture: "vi-vn")
+list_post_contents(specificulture: "vi-vn")
+list_module_contents(specificulture: "vi-vn")
+```
+
+**Step 1b — Clone page-module associations.** `create_culture` clones pages and modules separately but does **not** recreate the page-module associations between them. The new culture's pages render without modules unless you re-create those associations:
+
+```
+// 1. Get the default-culture page's module associations
+list_page_module_associations(pageContentId: <defaultCulturePageId>)
+
+// 2. Find the cloned page and module in the new culture (match by systemName — clones keep the same systemName)
+
+// 3. Re-create each association
+create_page_module_association(pageContentId: <newCulturePageId>, moduleContentId: <newCultureModuleId>)
+```
+
+Do this for every page that had modules in the default culture. Match source modules to their clones by `systemName` (the clone keeps the same `systemName` as the original).
+
+**Step 2 — For each item, translate in place** with `update_page_content` / `update_post_content` / `update_module_content`:
+
+```
+update_page_content(
+    id: <pageId>,
+    title: "<Translated title>",
+    content: "<Translated HTML content>",
+    excerpt: "<Translated excerpt>",
+    seoName: "<translated-slug>"   // optional — remove the -vi-vn suffix (about-vi-vn → gioi-thieu)
+)
+```
+
+Update the `seoName` to a natural slug in the target language. The `-vi-vn` suffix the server adds is a safe default to avoid collisions, but you can rename it once the translation is in place.
+
+**Step 3 — Translate every language key** for the new culture:
+
+```
+set_language_content("nav.home", "vi-vn", "Trang Chủ")
+set_language_content("nav.home.url", "vi-vn", "/")
+set_language_content("nav.about", "vi-vn", "Giới Thiệu")
+set_language_content("nav.about.url", "vi-vn", "/gioi-thieu")
+// ... one call per key per culture
+```
+
+Use `list_languages` to see all existing keys; call `set_language_content` for each key + culture pair (the tool creates the key if it doesn't exist — just pass the name, culture, and value).
+
+**Step 4 — Handle MixDB tables with a `specificulture` column.** `create_culture` only auto-clones pages, posts, and modules — **custom MixDB tables are NOT cloned**. For any MixDB table whose displayed text differs per culture (§3b), manually replicate and translate:
+
+4a. **If the table already has a `specificulture` column** — clone each row for the new culture:
+
+```
+// 1. Get existing rows in the default culture
+query_table(tableName: "mix_products", filterJson: "{\"specificulture\":\"en-us\"}")
+
+// 2. For each row, clone with the new culture code
+create_row(tableName: "mix_products", dataJson: "{\"name\":\"<original>\",\"specificulture\":\"vi-vn\",...}")
+
+// 3. Translate the text columns in each new row
+update_row(tableName: "mix_products", id: <newRowId>, dataJson: "{\"name\":\"<translated>\",...}")
+```
+
+4b. **If the table does NOT yet have a `specificulture` column** — add one first with a default value matching the existing culture (stamps all existing rows), then clone:
+
+```
+// 1. Add the column, default = existing culture
+add_column_to_table(databaseSystemName: "mix_products", schemaText: "Add a specificulture text column with default value 'en-us'")
+
+// 2. Then clone + translate as in 4a
+```
+
+Without this step, MixDB-driven content (testimonials, services, team members, products) renders the same text in every culture — the table has no rows for the new culture, or existing rows aren't culture-scoped.
+
+**Step 5 — Verify.** Open the site with `?culture=vi-vn` and confirm every page renders translated content and labels. The switcher links resolve correctly (§5) once the `nav.*.url` keys are translated.
 
 ## Gotchas
 
