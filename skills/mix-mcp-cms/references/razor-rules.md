@@ -4,6 +4,12 @@ Detailed Razor syntax rules for Mixcore templates. Loaded by `mixcore:mix-mcp-cm
 
 ---
 
+## 0.0 🚨 NEVER create a single-file HTML site — always decompose into Mixcore templates
+
+**Every site MUST be built as a Master layout → Page template → Module templates (optional), never as one monolithic `.html` file.** One file with inline `<style>`/`<script>` cannot be managed, edited, or reused in the CMS. The master holds the design tokens + shared markup (nav, footer) once; the page composes sections from modules; every piece is independently editable via the CMS admin panel. This is non-negotiable — even a "simple landing page" follows this pattern. **There is no "single HTML file" deliverable in Mixcore — the output is always at least a Master + Page template pair.**
+
+---
+
 ## 0. Compile-check server-side after every write (do this first)
 
 🚨 **CRITICAL RULE: after each `CreateTemplate`/`UpdateTemplate`, call `ValidateTemplate` and fix any errors before rendering a page or opening a browser.** It compiles the Razor server-side via the runtime view engine and returns `{ success, skipped, errors:[{ line, message, code }] }` in ~1s, so the syntax mistakes the rest of this file warns about (`@@`-escaping, generic-call `@(...)` wrapping, wrong `@model`, missing `.cshtml`) surface as a structured `CS*`/`RZ*` diagnostic instead of a 500 page found only by a browser round-trip.

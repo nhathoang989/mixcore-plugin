@@ -36,7 +36,9 @@ Do NOT create any files or call any MCP tools yet. Instead, present a structured
 | Features | "Any special requirements — multi-language, member portal, e-commerce, or none?" |
 | Design style | "Any brand colours, fonts, or design references to follow?" |
 
-**Planning Principles — apply these 3 rules before proposing any site outline:**
+**Planning Principles — apply these 4 rules before proposing any site outline:**
+
+0. **🚨 NEVER create a single-file HTML site. Every site MUST be decomposed into Mixcore templates.** A Master layout (shell, nav, footer, `@RenderBody`) → a Page template (content structure, `@model PageContentViewModel`) → optional Module templates (reusable blocks — hero, features, testimonials, pricing cards). One monolithic `.html` file with inline `<style>`/`<script>` cannot be managed, edited, or reused in the CMS. The master holds the design tokens + shared markup once; the page composes sections from modules; every piece is independently editable. This is non-negotiable — even a "simple landing page" follows master→page→modules. There is no "single HTML file" deliverable in Mixcore.
 
 1. **Break pages into manageable sections — when applicable.** For each page, ask: "Does this page have multiple distinct visual/functional sections?" If yes, split into reusable modules instead of one monolithic template. Modules are independently editable, reorderable, and reusable across pages. Simple pages (e.g. Privacy Policy, single-column text) don't need decomposition.
 

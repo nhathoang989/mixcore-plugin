@@ -149,7 +149,8 @@ wiki/
 | `system-prompts/instructions/overview/ai-chat-widget.md` | `plugins/mixcore/skills/mix-mcp-ai/` (chat-widget reference) |
 | `system-prompts/instructions/reference/mix-cms-reference.md` | Enums/folder-types live in the live MCP tool schemas (ToolSearch); mirror in `mix-mcp-cms/SKILL.md` "Enum Values" |
 | `system-prompts/instructions/reference/cms-csharp-extension-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` (CMS C# extension patterns) |
-| `system-prompts/instructions/workflows/*.md` | No direct skill counterpart — server-side AI workflow guides; mirror architectural facts in the relevant `mix-mcp-*` skill |
+| `system-prompts/instructions/workflows/mix-build-site.md` | `plugins/mixcore/skills/mix-mcp-build-site/SKILL.md` (build-site phased workflow — planning principles, phase overview, execution protocol) |
+| `system-prompts/instructions/workflows/*.md` (other workflows) | No direct skill counterpart — server-side AI workflow guides; mirror architectural facts in the relevant `mix-mcp-*` skill |
 | `system-prompts/{mixcore-focused,site-knowledge,planning}-system-prompt.md` (root) | No skill counterpart — LOCKED runtime prompts (paths hardcoded in C#); never add frontmatter |
 | `system-prompts/agent/*.md` | No skill counterpart — server-only LLM prompts |
 | `system-prompts/mcp/*.md` | MCP tool signatures (live via ToolSearch) |
