@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and wwwroot/system-prompts/ (in-app Mix AI engine) MUST mirror each other. Trigger on "update docs", "update skill", "sync instructions", "keep docs in sync", editing any system-prompts/instructions/*.md or mixcore:* SKILL/reference file, adding a new skill or instruction, or whenever you detect drift between the two locations. Sibling routers: mixcore:mixcore (content CRUD via MCP) · mixcore:mixdev (source-code feature work).
+description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/* (in-app Mix AI engine via SkillService/VectorLessService) MUST mirror each other. Trigger on "update docs", "update skill", "sync docs", "keep docs in sync", editing any system-prompts/skills/* or plugins/mixcore/skills/* file, adding a new skill, or whenever you detect drift between the two locations. Sibling routers: mixcore:mixcore (content CRUD via MCP) · mixcore:mixdev (source-code feature work).
 ---
 
 # Mixcore Documentation Sync
@@ -11,8 +11,8 @@ Mixcore CMS has **two documentation locations** that must stay in sync. They ser
 
 | Location | Path | Audience |
 |---|---|---|
-| **Skills** | `plugins/mixcore/skills/*/` | Claude Code agents (you, in developer sessions) |
-| **System Prompts** | `wwwroot/system-prompts/` | The Mix AI engine (in-app LLM, GenerationAgent, SiteKnowledgeAgent) |
+| **Plugin Skills** | `plugins/mixcore/skills/*/` | Claude Code agents (you, in developer sessions) |
+| **System Skills** | `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/` | The Mix AI engine — `SkillService` loads skills at runtime, `VectorLessService` indexes them for RAG, `AgentLoopService` injects skill context per turn |
 
 A fact that is true in one must be true in the other. When one drifts, the in-app AI gives different answers than the developer AI — which causes user-facing inconsistencies.
 
@@ -20,145 +20,94 @@ A fact that is true in one must be true in the other. When one drifts, the in-ap
 
 ## Directory Structure
 
-### `wwwroot/system-prompts/`
+### `plugins/mixcore/skills/` (authoritative source)
+
+All skills live here. Each skill is a folder with `SKILL.md` (YAML frontmatter: `name`, `description`, `triggers`, `argument-hint`) + optional `references/*.md` files.
+
+```
+plugins/mixcore/skills/
+├── mixcore/              # Router: content tasks → delegates to mix-mcp-*
+├── mixdev/               # Router: code tasks → delegates to mix-dev-*
+├── docs-sync/            # This skill — documentation sync
+├── mix-mcp-cms/          # Templates, pages, modules, posts, forms, razor
+├── mix-mcp-db/           # MixDB tables, columns, relationships, rows
+├── mix-mcp-ai/           # SignalR hubs, AI chat widgets, streaming
+├── mix-mcp-rag/          # Wiki knowledge base, RAG search, documents
+├── mix-mcp-flows/        # Workflow automation, webhooks, schedules
+├── mix-mcp-schedule/     # Cron jobs, scheduled tasks
+├── mix-mcp-spa/          # Deploy pre-built SPA dist/ folders
+├── mix-mcp-build-site/   # Phased website build workflow (7 phases)
+├── mix-verify-mcp/       # MCP tool round-trip verification
+├── mix-verify-site/      # Site-wide verification checks
+├── mix-dev-module/       # Scaffold new module projects
+├── mix-dev-dotnet-code/  # C# 12 / .NET 10 code patterns
+├── mix-dev-dotnet-cli/   # dotnet build/test/run commands
+├── mix-dev-migration/    # EF Core migrations (4 providers)
+├── mix-dev-tests/        # xUnit test authoring
+├── mix-dev-blazor-app/   # Blazor component/page development
+└── mix-dev-blazor-blueprint/  # shadcn-style dashboard UI
+```
+
+### `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/` (runtime mirror)
 
 ```
 system-prompts/
-├── mixcore-focused-system-prompt.md   [LOCKED — C# ref: ChatAgent.cs]
-├── site-knowledge-system-prompt.md    [LOCKED — C# ref: SiteKnowledgeAgent.cs]
-├── planning-system-prompt.md          [LOCKED — C# ref: PlanningService.cs]  # NOTE: no YAML frontmatter — loaded raw (see caveat below)
-├── agent/                             # Free-standing agent runtime prompts
-│   ├── content-analysis.md
-│   ├── data-analysis.md
-│   ├── generation.md
-│   ├── intent-classification.md      # 2-category (chat/plan)
-│   ├── module-analysis.md
-│   ├── step-execution.md
-│   └── tool-classification.md
-├── mcp/                               # MCP tool operation prompts
-│   ├── intent-classification.md      [LOCKED — C# ref: RoutingAgent.cs]
-│   ├── parse-query.md                [LOCKED — C# ref: SmartQueryParser.cs]
-│   ├── parse-schema-description.md   [LOCKED — C# ref: MixDbSchemaParser.cs]
-│   ├── tool-classification.md        [LOCKED — C# ref: ToolExecutionService.cs]
-│   ├── tool-classification-default-context.md  [LOCKED — C# ref: ToolExecutionService.cs]
-│   ├── extract-tool-params.md
-│   ├── generate-column-value.md
-│   ├── generate-mixdb-record.md
-│   └── intent-classification-update-content.md
-└── instructions/                      # AI agent & developer knowledge base
-    ├── start-here.md                  # Master index
-    ├── overview/
-    │   ├── mixcore-cms-overview.md
-    │   └── ai-chat-widget.md
-    ├── content/
-    │   ├── modules.md
-    │   ├── pages.md
-    │   └── posts.md
-    ├── mixdb/
-    │   ├── overview.md
-    │   ├── best-practices.md
-    │   ├── data-loading-guide.md
-    │   ├── database-creation-guide.md
-    │   └── datasource-services-guide.md
-    ├── developer/
-    │   ├── developer-guide.md
-    │   ├── developer-notifications.md
-    │   ├── mcp-tools-reference.md
-    │   └── infrastructure-providers.md
-    ├── reference/                     # CMS-audience reference (distinct from developer/)
-    │   ├── mix-cms-reference.md       # enums, folder types, status, query operators
-    │   ├── mcp-tools-catalog.md       # ORCHESTRATOR INDEX — Available Tools map + links to mcp-tools/ detail files (≠ developer/mcp-tools-reference.md authoring doc)
-    │   ├── mcp-tools/                  # per-tool-group detail files w/ full param schemas
-    │   │   ├── datasource-schema.md · datasource-data.md · rag-search.md · fetch-url.md · vault-upload.md
-    │   │   ├── text-file.md · cms-pages.md · cms-modules.md · page-module.md · templates.md
-    │   │   └── scheduler.md · service-discovery.md · flows.md · notifications.md
-    │   └── cms-csharp-extension-guide.md  # CMS C# extension guide (≠ developer/developer-guide.md cloud-module guide)
-    ├── templates/
-    │   ├── razor-syntax-guidelines.md
-    │   ├── form-template.md
-    │   ├── master-template.md
-    │   ├── mixdb-template.md
-    │   ├── module-template.md
-    │   ├── page-template.md
-    │   ├── post-template.md
-    │   └── widget-template.md
-    └── workflows/
-        ├── ai-content-editor.md
-        ├── admin-portal.md
-        └── mix-build-site.md
+├── system/                           # Core system prompts (locked, no skill counterpart)
+│   ├── mixcore-focused-system-prompt.md   [LOCKED — C# ref: SystemPromptService]
+│   ├── planning-system-prompt.md          [LOCKED — C# ref: PlanningService]
+│   └── site-knowledge-system-prompt.md    [LOCKED — C# ref: SiteKnowledgeAgent]
+└── skills/                           # Runtime mirror of plugin skills (non-mix-dev only)
+    ├── mixcore/SKILL.md + references/
+    ├── mix-mcp-cms/SKILL.md + references/
+    ├── mix-mcp-db/SKILL.md + references/
+    ├── mix-mcp-ai/SKILL.md + references/
+    ├── mix-mcp-rag/SKILL.md + references/
+    ├── mix-mcp-flows/SKILL.md + references/
+    ├── mix-mcp-schedule/SKILL.md + references/
+    ├── mix-mcp-spa/SKILL.md + references/
+    ├── mix-mcp-build-site/SKILL.md + references/
+    ├── mix-verify-mcp/SKILL.md + references/
+    ├── mix-verify-site/SKILL.md + references/
+    ├── mix-mcp-tools/SKILL.md + references/     # MCP prompt templates (parse-query, chart-data, etc.)
+    ├── mix-mcp-reference/SKILL.md + references/ # CMS reference docs (no single skill owner)
+    ├── mix-agent/SKILL.md + references/         # Agent-level prompts (intent, tool, step)
+    └── docs-sync/SKILL.md                       # This skill — documentation sync
 ```
 
-### `wwwroot/mixcontent/documents/wiki/`
+**What is NOT mirrored to `system-prompts/skills/`:**
+- **`mix-dev-*` skills** — developer tooling, not runtime AI. The in-app AI never scaffolds modules, runs `dotnet build`, or authors C# code. These stay in `plugins/mixcore/skills/` only.
+- **`mixdev` router** — same reason, code-only.
+- **`system-prompts/system/*.md`** — locked core prompts, loaded by `SystemPromptService.LoadPrompt()`, no skill counterpart.
 
-Each sub-folder is a site slug (tenant site name). Every wiki file must have YAML front matter.
-
-```
-wiki/
-├── _system/
-├── rose-whisk/
-│   ├── index.md
-│   ├── database/  (categories, contacts, newsletter, products)
-│   ├── forms/     (contact-form, newsletter-widget)
-│   ├── modules/   (best-sellers, featured-categories, hero-banner, our-story)
-│   ├── pages/     (home, menu, about, contact)
-│   └── templates/ (master)
-└── mixcore-cloud/
-    ├── index.md
-    ├── database/  (mixcore-cloud-testimonials, mixcore-cloud-contacts)
-    ├── forms/     (contact)
-    ├── pages/     (home)
-    └── templates/ (mixcore-cloud-layout, mixcore-cloud-home)
-```
-
-**Naming rules:** all file and folder names must be lowercase kebab-case (e.g., `razor-syntax-guidelines.md`, not `cshtml-razor-syntax-guidelines.md`). Never use PascalCase, underscores, or ALL-CAPS for file names.
-
-**Locked files:** 5 prompt files in `mcp/` and 3 at root (`mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md`) are path-locked in C# — never rename or move them.
-
-🚨 **Runtime prompts are loaded RAW.** `SystemPromptService.LoadPrompt()` returns `File.ReadAllText(...)` verbatim — it does **not** strip YAML frontmatter. Any frontmatter on a root / `agent/` / `mcp/` prompt is injected straight into the LLM system prompt. **Do not add frontmatter to these runtime prompts**, especially strict-output ones like `planning-system-prompt.md` (which must return "ONLY a JSON array"). Frontmatter belongs only on the RAG-indexed `instructions/**` docs. (The two existing locked root files carry legacy frontmatter that already leaks; leave it unless asked, but add no more.)
+**Locked files:** The 3 files in `system/` are path-locked in C# via `SystemPromptService.LoadPrompt()`. Never rename or move them. They use `{{TenantName}}`, `{{Date}}`, `{{RAGContext}}` template variables.
 
 ---
 
 ## File Mapping
 
-| When you change… | Also update… |
-|---|---|
-| `plugins/mixcore/skills/mix-mcp-cms/references/razor-rules.md` | `system-prompts/instructions/templates/razor-syntax-guidelines.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/mixdb-in-razor.md` | `system-prompts/instructions/templates/mixdb-template.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/data-loading.md` | `system-prompts/instructions/mixdb/data-loading-guide.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/content-creation.md` | `system-prompts/instructions/content/pages.md`, `content/modules.md`, `content/posts.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/form-templates.md` | `system-prompts/instructions/templates/form-template.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/viewmodels.md` | `system-prompts/instructions/templates/page-template.md`, `post-template.md`, `module-template.md`, `widget-template.md` (ViewModel property tables) |
-| `plugins/mixcore/skills/mix-mcp-cms/references/design-system.md` | `system-prompts/instructions/templates/design-system.md` |
-| `plugins/mixcore/skills/mix-mcp-cms/references/design.md` | `system-prompts/instructions/templates/design.md` |
-| MCP tool signatures (live via ToolSearch) | `system-prompts/mcp/` files |
-| `plugins/mixcore/skills/mix-mcp-db/SKILL.md` | `system-prompts/instructions/mixdb/overview.md`, `database-creation-guide.md` |
-| `plugins/mixcore/skills/mix-mcp-flows/SKILL.md` | `src/cloud/MixCore.Cloud.Flows/README.md` (MCP Tools section) |
-| `plugins/mixcore/skills/mix-mcp-schedule/SKILL.md` | `src/cloud/MixCore.Cloud.Scheduler/README.md` (MCP Tools section) |
-| `plugins/mixcore/skills/mix-dev-blazor-app/SKILL.md` | No direct counterpart — note architectural facts in `system-prompts/instructions/overview/mixcore-cms-overview.md` |
-| `plugins/mixcore/skills/mixcore/SKILL.md` | `system-prompts/instructions/start-here.md` (agent protocol section) |
-| `plugins/mixcore/skills/mixdev/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (architectural facts, namespace patterns) |
-| `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (coding standards, EF patterns) |
-| `plugins/mixcore/skills/mix-dev-module/SKILL.md` | `system-prompts/instructions/developer/developer-guide.md` (module skeleton, controller/service base-class signatures) |
-| `plugins/mixcore/skills/mix-mcp-rag/SKILL.md` | `system-prompts/instructions/reference/mcp-tools/rag-search.md` (RAGSearchTool — wiki document CRUD API + tenant-scoped paths) and `system-prompts/instructions/start-here.md` (Wiki-First Rule) |
-| `plugins/mixcore/skills/mix-mcp-flows/SKILL.md` *(system-prompts side)* | `system-prompts/instructions/reference/mcp-tools/flows.md` (Flows action types + parameter injection — keep in sync with `src/cloud/MixCore.Cloud.Flows/README.md`) |
-| `system-prompts/instructions/reference/mcp-tools/notifications.md` | No direct skill counterpart — NotificationTool is a general-purpose MCP tool; notification development patterns live in `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` |
-| `system-prompts/instructions/start-here.md` | `plugins/mixcore/skills/mixcore/SKILL.md` (routing rules, checklist) |
-| `system-prompts/instructions/developer/developer-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` and `plugins/mixcore/skills/mixdev/SKILL.md` |
-| `system-prompts/instructions/developer/developer-notifications.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` (notification patterns section — `INotificationService`, `IHubContext<NotificationHub>`, `NotificationsController`, MCP NotificationTool) |
-| `system-prompts/instructions/developer/mcp-tools-reference.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/references/` (MCP tool authoring) |
-| `system-prompts/instructions/developer/infrastructure-providers.md` | `docs/04-mixcore-cloud-technical-architecture.md` and `docs/services/cloud-service-providers.md` |
-| `system-prompts/instructions/mixdb/*.md` | `plugins/mixcore/skills/mix-mcp-db/SKILL.md` and `plugins/mixcore/skills/mix-mcp-cms/references/` |
-| `system-prompts/instructions/templates/*.md` | `plugins/mixcore/skills/mix-mcp-cms/references/` |
-| `system-prompts/instructions/overview/ai-chat-widget.md` | `plugins/mixcore/skills/mix-mcp-ai/` (chat-widget reference) |
-| `system-prompts/instructions/reference/mix-cms-reference.md` | Enums/folder-types live in the live MCP tool schemas (ToolSearch); mirror in `mix-mcp-cms/SKILL.md` "Enum Values" |
-| `system-prompts/instructions/reference/cms-csharp-extension-guide.md` | `plugins/mixcore/skills/mix-dev-dotnet-code/SKILL.md` (CMS C# extension patterns) |
-| `system-prompts/instructions/workflows/mix-build-site.md` | `plugins/mixcore/skills/mix-mcp-build-site/SKILL.md` (build-site phased workflow — planning principles, phase overview, execution protocol) |
-| `system-prompts/instructions/workflows/*.md` (other workflows) | No direct skill counterpart — server-side AI workflow guides; mirror architectural facts in the relevant `mix-mcp-*` skill |
-| `system-prompts/{mixcore-focused,site-knowledge,planning}-system-prompt.md` (root) | No skill counterpart — LOCKED runtime prompts (paths hardcoded in C#); never add frontmatter |
-| `system-prompts/agent/*.md` | No skill counterpart — server-only LLM prompts |
-| `system-prompts/mcp/*.md` | MCP tool signatures (live via ToolSearch) |
+Sync is now **1:1 by folder name**. When you change a skill in `plugins/mixcore/skills/<name>/`, update `system-prompts/skills/<name>/` with the same content.
 
-When no direct counterpart exists, check whether the change affects the **architecture overview** (`instructions/overview/mixcore-cms-overview.md`) and update it if so.
+| Plugin skill | System skill (mirror) | Notes |
+|---|---|---|
+| `plugins/mixcore/skills/mixcore/` | `system-prompts/skills/mixcore/` | Router + start-here |
+| `plugins/mixcore/skills/mix-mcp-cms/` | `system-prompts/skills/mix-mcp-cms/` | Templates, pages, modules, forms, razor |
+| `plugins/mixcore/skills/mix-mcp-db/` | `system-prompts/skills/mix-mcp-db/` | MixDB tables, columns, rows |
+| `plugins/mixcore/skills/mix-mcp-ai/` | `system-prompts/skills/mix-mcp-ai/` | SignalR, chat widgets, AI streaming |
+| `plugins/mixcore/skills/mix-mcp-rag/` | `system-prompts/skills/mix-mcp-rag/` | Wiki, RAG search, documents |
+| `plugins/mixcore/skills/mix-mcp-flows/` | `system-prompts/skills/mix-mcp-flows/` | Workflow automation |
+| `plugins/mixcore/skills/mix-mcp-schedule/` | `system-prompts/skills/mix-mcp-schedule/` | Cron jobs |
+| `plugins/mixcore/skills/mix-mcp-spa/` | `system-prompts/skills/mix-mcp-spa/` | SPA deployment |
+| `plugins/mixcore/skills/mix-mcp-build-site/` | `system-prompts/skills/mix-mcp-build-site/` | Phased website builder |
+| `plugins/mixcore/skills/mix-verify-mcp/` | `system-prompts/skills/mix-verify-mcp/` | MCP tool verification |
+| `plugins/mixcore/skills/mix-verify-site/` | `system-prompts/skills/mix-verify-site/` | Site verification |
+| `plugins/mixcore/skills/docs-sync/` | `system-prompts/skills/docs-sync/` | This skill |
+| `plugins/mixcore/skills/mix-dev-*/` | **NOT SYNCED** | Developer tooling, not runtime AI |
+| `plugins/mixcore/skills/mixdev/` | **NOT SYNCED** | Code router, not runtime AI |
+| — | `system-prompts/skills/mix-mcp-tools/` | MCP prompt templates (no plugin counterpart) |
+| — | `system-prompts/skills/mix-mcp-reference/` | CMS reference (no plugin counterpart) |
+| — | `system-prompts/skills/mix-agent/` | Agent prompts (no plugin counterpart) |
+
+**System-only skills** (`mix-mcp-tools`, `mix-mcp-reference`, `mix-agent`): These have no plugin counterpart. They were created from the old `system-prompts/agent/`, `mcp/`, and `instructions/reference/` folders during the #348 consolidation. When their content changes, update the relevant plugin skill that owns that domain (e.g. `mix-mcp-tools` changes → check if `mix-mcp-cms` or `mix-mcp-db` need updates).
 
 ---
 
@@ -170,172 +119,120 @@ Follow this checklist every time you touch documentation in either location.
 
 Before editing, note:
 - Which file are you about to change?
-- Which location is it in (skill vs. system-prompts)?
+- Which location is it in (plugin skill vs. system skill)?
 - What is the nature of the change? (new fact, corrected fact, removed section, new pattern)
 
 ### Step 2 — Make the primary edit
 
-Edit the file the user asked you to update. Follow the existing format and frontmatter conventions for that file.
+Edit the file the user asked you to update. **Prefer editing the plugin skill first** (it is the authoritative source), then mirror to system-prompts.
 
-**Skill files** use YAML frontmatter: `name`, `description`, `argument-hint`, `allowed-tools`  
-**Instruction files** use YAML frontmatter — see the [YAML Front Matter Standard](#yaml-front-matter-standard) section below.
+**Skill files** use YAML frontmatter: `name`, `description`, `argument-hint`, `triggers`
 
-### Step 3 — Update the counterpart
+### Step 3 — Mirror to the other location
 
-Look up the mapping table above. For each counterpart file:
+Copy the changed files to the corresponding skill folder in the other location:
 
-1. Read the counterpart file to understand its current state
-2. Apply the same conceptual change — same fact, same correction — adapted to that file's audience and format
-3. Update `last_modified` in instruction frontmatter to today's date
-4. Do NOT just copy-paste — skills are imperative instructions ("do X"), instructions are reference docs ("X works like Y")
+```
+plugins/mixcore/skills/<name>/  ←→  system-prompts/skills/<name>/
+```
 
-### Step 4 — Update the index if needed
+1. Copy updated `SKILL.md` and any changed `references/*.md` files
+2. If the file already exists in the target, overwrite it
+3. Do NOT copy-paste selectively — the content must be identical
 
-If you added a **new file** to either location:
-- New instruction file → add a row to `system-prompts/instructions/START-HERE.md`
-- New skill reference → add a row to the skill's reference table in `SKILL.md`
+**Skip mirroring if:**
+- The skill is `mix-dev-*` or `mixdev` (not synced to system-prompts)
+- The skill is `mix-mcp-tools`, `mix-mcp-reference`, or `mix-agent` (system-only, no plugin counterpart — update the relevant domain skill instead)
+
+### Step 4 — Update frontmatter
+
+If the skill file has `last_modified` in its frontmatter, update it to today's date in both locations.
 
 ### Step 5 — Verify consistency
 
 After both edits, do a quick spot-check:
 
 ```
-Does the skill say the same thing about [changed topic] as the instruction file?
+Does the system-prompts copy say the same thing about [changed topic] as the plugin copy?
 ```
 
 If the answer is "no" or "I'm not sure", fix it now before closing the task.
 
-### Step 6 — Use document CRUD tools; only bulk-reload when needed
-
-**Always use the wiki document MCP tools instead of reading or writing `.md` files directly.** The tools write to disk AND update the in-memory RAG index atomically — no explicit reload needed.
-
-| Operation | Tool | Notes |
-|---|---|---|
-| Create or update a wiki doc | `mcp__mixcore__generate_document` | Generates YAML frontmatter automatically; title → kebab-case filename |
-| Read a wiki doc | `mcp__mixcore__read_document` | Returns raw markdown including frontmatter |
-| List docs in a folder | `mcp__mixcore__list_documents` | Supports `recursive=true` for subtrees |
-| Delete a wiki doc | `mcp__mixcore__delete_document` | Removes from disk **and** de-indexes immediately; requires `confirm='YES'` |
-| Bulk reload (after manual edits) | `mcp__mixcore__reload_wiki` | Only needed after editing files outside the tool (e.g. manual file system changes) |
-
-**Never use `mcp__mixcore__write_text_file` or `mcp__mixcore__read_text_file` for wiki documents.** Those tools write raw bytes with no index update — the in-app AI will serve stale content until the next restart.
-
-**Why:** `SiteWikiService` keeps an in-memory BM25 + optional LLM-rerank index built from the `wwwroot/mixcontent/documents/wiki/` tree. `generate_document` and `delete_document` call `UpsertAsync`/`DeleteAsync` on that service after every disk write, so the index is always current. `reload_wiki` does a full rescan — use it only when you know files were changed outside the tool.
-
 ---
 
-## YAML Front Matter Standard
+## Skill File Format
 
-Every `.md` file in `system-prompts/` and `wiki/` must have this exact front matter structure:
+### SKILL.md
+
+Every skill folder has exactly one `SKILL.md` with YAML frontmatter:
 
 ```yaml
 ---
-title: "[Clear, descriptive title]"
-category: "[Top-level folder / site name]"
-sub_category: "[Sub-folder / content type]"
-tags: [tag1, tag2, tag3]
-last_modified: YYYY-MM-DD
-summary: "[1-2 sentence summary for search indexing]"
+name: mix-mcp-build-site
+description: Build a complete website with Mixcore CMS using a phased, documented plan...
+argument-hint: "[analyze|plan|phase-1|...] [site-name]"
+triggers:
+  - build site
+  - create site
+  - landing page
+  - phases
 ---
 ```
 
-| Field | Rule |
-|---|---|
-| `title` | Human-readable, title-cased. Not the filename. |
-| `category` | Matches the top-level grouping: `system-prompts`, `instructions`, `rose-whisk`, `system` (for wiki/_system/) |
-| `sub_category` | Matches the subfolder: `agent-prompts`, `mcp-prompts`, `overview`, `content`, `mixdb`, `reference`, `templates`, `workflows`, `database`, `forms`, `modules`, `pages` |
-| `tags` | 4–8 lowercase kebab-case tags; include the primary technology/type and at least 2 specific terms |
-| `last_modified` | ISO date — update every time you edit the file |
-| `summary` | 1–2 sentences. Must be parseable as a standalone description for search indexing. |
+| Field | Required | Description |
+|---|---|---|
+| `name` | Yes | Must match the folder name exactly |
+| `description` | Yes | One sentence — used for search matching by `SkillService` |
+| `argument-hint` | No | Shown in slash-command auto-complete |
+| `triggers` | Yes | Keyword list — `SkillService.BuildSkillContextAsync` matches user query terms against these for scoring. Include 5-20 lowercase terms that cover the skill's domain. |
 
-**Do NOT use the old format:** `uuid`, `last_verified` — these are deprecated and must be removed if encountered.
+### references/*.md
+
+Optional. Each file is plain markdown loaded on demand. No frontmatter required. Keep each reference under ~4,000 chars to avoid context blowout when `SkillService` injects them.
 
 ---
 
 ## Writing Conventions
 
-🚨 **CRITICAL RULE: never let a single document exceed 10,000 characters.** Applies to every file you create or edit in either location — skill files, `references/` files, `system-prompts/instructions/**`, runtime prompts, and `wiki/` docs. Oversized files index poorly (the RAG chunker splits mid-thought) and blow the context budget when loaded as a system prompt. When a doc approaches the limit:
+### For all skill files
 
-- **Split by topic** into focused sibling files and cross-link them — exactly as `instructions/templates/` already does (`razor-syntax-guidelines.md` + `razor-encoding-security.md` + `razor-ai-workflow.md`).
-- For a thin-index SKILL.md, push depth into a new `references/` file and link it; keep the index short.
-- After splitting, update the index (`start-here.md` / the skill's reference table) **and** the File-Mapping table so both locations still mirror.
-
-Check before saving: a file at ~10 KB on disk is at the limit (1 byte ≈ 1 char for ASCII markdown — `wc -c <file>`). If an existing counterpart is already over, prefer splitting it over appending more.
-
-### For skill files (`plugins/mixcore/skills/`)
-
-- **Audience**: You (Claude Code agent in a developer session)
+- **Audience**: Both Claude Code agents (plugin) and the in-app Mix AI LLM (system-prompts)
 - **Tone**: Direct, imperative ("Read X before starting", "Never call Y directly")
 - **Format**: Short tables, code blocks, checklists
 - **Critical rules**: Use `🚨 CRITICAL RULE:` headers for non-negotiable constraints
 - **No fluff**: Every line earns its place
+- **Keep SKILL.md thin**: Push depth into `references/` files, link them from SKILL.md
 
-### For instruction files (`wwwroot/system-prompts/instructions/`)
+### Naming rules
 
-- **Audience**: The Mix AI engine (GenerationAgent, SiteKnowledgeAgent) at runtime
-- **Tone**: Reference documentation ("X is Y", "To do Z, call W")
-- **Format**: Standard YAML front matter (see above) + `#` root heading + body
-- **Context breadcrumb**: `> **Context:** Mixcore CMS > [section] > [topic]`
-- **Cross-links**: Use relative markdown links to other instruction files (use new kebab-case paths)
-
-### For runtime prompt files (`wwwroot/system-prompts/agent/` and `mcp/`)
-
-- **Audience**: Server-side LLM prompts, not AI agents
-- **Template variables**: `{{Date}}`, `{{TenantName}}`, `{{RAGContext}}`, `{{Modality}}`
-- **No Claude Code-specific instructions** — these run in the server LLM context
-- **Locked files**: Never rename/move the 5 locked `mcp/` files or the 2 root files — their paths are hardcoded in C#
+- All file and folder names must be lowercase kebab-case
+- Skill folder names use the `mix-<family>-<name>` convention
+- Reference file names are descriptive: `razor-rules.md`, `form-templates.md`, `data-loading.md`
+- Never use PascalCase, underscores, or ALL-CAPS
 
 ---
 
 ## Common Gotchas
 
-**Locked prompt files cannot be moved**: `mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md`, and 5 files in `mcp/` are hardcoded in C# via `SystemPromptService.LoadPrompt()`. Never rename or relocate them — and do **not** add YAML frontmatter (it is loaded raw and leaks into the LLM prompt; see the Runtime-prompts gotcha above).
+**`mix-dev-*` skills are NOT synced**: These are developer tooling — the in-app AI never uses them. Don't copy them to `system-prompts/skills/`.
 
-**API method names drift**: When an MCP tool is renamed or its signature changes, update both the skill's `allowed-tools` list and the instruction's "MCP tools" table.
+**Locked prompt files cannot be moved**: The 3 files in `system-prompts/system/` are hardcoded in C# via `SystemPromptService.LoadPrompt()`. Never rename or relocate them.
 
-**Critical rules must appear in both places**: If you add a `🚨 CRITICAL RULE` to a skill, add the same constraint to the corresponding instruction file — the in-app AI needs to know too.
+**`triggers:` frontmatter is required**: `SkillService.BuildSkillContextAsync` relies on triggers for keyword matching. Without them, the skill won't match user queries and won't be injected as context. Always include 5-20 relevant trigger keywords.
 
-**`last_modified` must be updated**: Every edit to any documentation file must update `last_modified` in its front matter. Never use `last_verified` — that field is deprecated.
+**Skill folder name must match `name:` frontmatter**: The directory name and the `name:` field must be identical.
 
-**File naming is kebab-case**: New files must be lowercase-kebab-case. Never use PascalCase (`ContactForm.md`), underscores (`rosewhisk_products.md`), or ALL-CAPS (`START-HERE.md`).
+**Critical rules must appear in both copies**: If you add a `🚨 CRITICAL RULE` to a plugin skill, copy it to the system-prompts mirror — the in-app AI needs to know too.
 
-**Don't add skill-only concepts to instructions**: Things like "load the mixcore skill first" or Claude Code slash commands have no meaning in the server-side context. Keep them skill-only.
-
-**Index files need updating when files move**: `instructions/start-here.md` is the master index. Adding or moving instruction files requires a corresponding row update there. Similarly, `rose-whisk/index.md` must reflect any wiki file changes.
-
-**Never use raw file tools on wiki docs**: `mcp__mixcore__write_text_file` writes to disk only — no index update. Always use `mcp__mixcore__generate_document` for wiki writes so the RAG index stays current. Same for reads: `mcp__mixcore__read_document` is scoped to the wiki base path; raw `read_text_file` has no such guard.
+**Don't add Claude Code-specific instructions to system-prompts**: Things like "load the mixcore skill first" or slash commands (`/mixcore:mix-mcp-cms`) have no meaning in the server-side context. The system copy should work for both audiences — keep skill-invocation instructions generic.
 
 ---
 
 ## Quick Reference: Directory Roots
 
 ```
-Skills root:          plugins/mixcore/skills/
-Instructions root:    wwwroot/system-prompts/instructions/
-Agent prompts root:   wwwroot/system-prompts/agent/
-MCP prompts root:     wwwroot/system-prompts/mcp/
-Wiki root:            wwwroot/mixcontent/documents/wiki/
+Plugin skills root:     plugins/mixcore/skills/
+System skills root:     src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/
+System prompts root:    src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/
+Wiki root:              wwwroot/mixcontent/documents/wiki/
 ```
-
-### Path quick-lookup (old → new)
-
-| Old path | New path |
-|---|---|
-| `instructions/START-HERE.md` | `instructions/start-here.md` |
-| `instructions/MIXCORE-CMS-OVERVIEW.md` | `instructions/overview/mixcore-cms-overview.md` |
-| `instructions/mixdb/README.md` | `instructions/mixdb/overview.md` |
-| `instructions/reference/reference-mcp-tools.md` | `instructions/reference/mcp-tools-catalog.md` (complete catalog) |
-| `instructions/reference/mcp-tools-reference.md` | `instructions/reference/mcp-tools-catalog.md` (renamed 2026-06-03 to disambiguate from developer/mcp-tools-reference.md authoring doc) |
-| `instructions/reference/developer-guide.md` | `instructions/reference/cms-csharp-extension-guide.md` (renamed 2026-06-03 to disambiguate from developer/developer-guide.md cloud-module guide) |
-| `instructions/reference/infrastructure-providers.md` | `instructions/developer/infrastructure-providers.md` |
-| `instructions/templates/cshtml-razor-syntax-guidelines.md` | `instructions/templates/razor-syntax-guidelines.md` |
-| `instructions/workflows/ai-content-editor-workflow.md` | `instructions/workflows/ai-content-editor.md` |
-| `content-analysis-prompt.md` (root) | `agent/content-analysis.md` |
-| `planning-prompt.md` (root) | `planning-system-prompt.md` (root — stays at root, loaded by PlanningService.cs) |
-| `generation-system-prompt.md` (root) | `agent/generation.md` |
-| `extract-tool-params.md` (root) | `mcp/extract-tool-params.md` |
-| `wiki/rose-whisk/README.md` | `wiki/rose-whisk/index.md` |
-| `wiki/mixcore-cloud/README.md` | `wiki/mixcore-cloud/index.md` |
-| `wiki/mixcore-cloud/templates/MixcoreCloudLayout.md` | `wiki/mixcore-cloud/templates/mixcore-cloud-layout.md` |
-| `wiki/mixcore-cloud/templates/MixcoreCloudHome.md` | `wiki/mixcore-cloud/templates/mixcore-cloud-home.md` |
-| `wiki/mixcore-cloud/database/mixcore_cloud_testimonials.md` | `wiki/mixcore-cloud/database/mixcore-cloud-testimonials.md` |
-| `wiki/mixcore-cloud/database/mixcore_cloud_contacts.md` | `wiki/mixcore-cloud/database/mixcore-cloud-contacts.md` |
