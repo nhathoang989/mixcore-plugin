@@ -21,11 +21,11 @@ After `create_culture`, follow the 4-step post-create workflow: validate templat
 
 ## 2. Per-culture content (Entity / EntityContent)
 
-Pages, posts, and modules store **one content row per culture** (like `MixPage`→`MixPageContent`). To author a translation, create a **separate** content row stamped with the target culture:
+Pages, posts, and modules store **one content row per culture** (like `MixPage`→`MixPageContent`). Each culture gets its **own** SEO name (slug) and its **own** translated HTML content.
 
-- `create_page_content(..., specificulture: "vi-vn")` — omit `specificulture` to use the tenant default.
-- Same for `create_post_content` / `create_module_content`.
-- 🚨 The **same `seoName` is allowed across cultures** (e.g. `quan-ao` in both `en-us` and `vi-vn`) but **NOT twice within one culture** — a duplicate `(tenant, culture, seoName)` is rejected at write time (400). Two same-culture rows with one slug would make the culture-scoped read throw `Sequence contains more than one element`.
+- **`create_culture` auto-creates a clone for every existing page/post/module** — each clone stamped with the new `specificulture` and given a **culture-suffixed slug** (`gioi-thieu` → `gioi-thieu-vi-vn`). Clones are duplicates (same title/content/excerpt as the source), NOT translations — you translate them after creation (§7).
+- **Never hand-create one page per culture.** Adding a culture auto-creates all content; adding default-culture content auto-fan-outs to every culture (§7). Don't call `create_page_content` just to add a translation — find the existing clone with `list_page_contents(specificulture: "vi-vn")` and `update_page_content` it.
+- 🚨 **Every culture gets its own `seoName`** — the auto-clone uses a suffixed slug (`about-vi-vn`), which you can later update to a natural translated slug (`gioi-thieu`). Same `seoName` across cultures is technically allowed (e.g. `gioi-thieu` in both `en-us` and `vi-vn`) but is **not the default** and is NOT expected — the auto-clone always suffixes. A duplicate `(tenant, culture, seoName)` is rejected at write time (400). Two same-culture rows with one slug would make the culture-scoped read throw `Sequence contains more than one element`.
 
 ## 3. Read a specific culture
 
