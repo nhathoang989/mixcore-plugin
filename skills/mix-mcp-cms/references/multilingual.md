@@ -23,9 +23,9 @@ After `create_culture`, follow the 4-step post-create workflow: validate templat
 
 Pages, posts, and modules store **one content row per culture** (like `MixPage`→`MixPageContent`). Each culture gets its **own** SEO name (slug) and its **own** translated HTML content.
 
-- **`create_culture` auto-creates a clone for every existing page/post/module** — each clone stamped with the new `specificulture` and given a **culture-suffixed slug** (`gioi-thieu` → `gioi-thieu-vi-vn`). Clones are duplicates (same title/content/excerpt as the source), NOT translations — you translate them after creation (§7).
+- **`create_culture` auto-creates a clone for every existing page/post/module** — each clone stamped with the new `specificulture`, keeping the same `seoName`, `title`, `content`, and `excerpt` as the source. Clones are duplicates, NOT translations — you translate them after creation (§7).
 - **Never hand-create one page per culture.** Adding a culture auto-creates all content; adding default-culture content auto-fan-outs to every culture (§7). Don't call `create_page_content` just to add a translation — find the existing clone with `list_page_contents(specificulture: "vi-vn")` and `update_page_content` it.
-- 🚨 **Every culture gets its own `seoName`** — the auto-clone uses a suffixed slug (`about-vi-vn`), which you can later update to a natural translated slug (`gioi-thieu`). Same `seoName` across cultures is technically allowed (e.g. `gioi-thieu` in both `en-us` and `vi-vn`) but is **not the default** and is NOT expected — the auto-clone always suffixes. A duplicate `(tenant, culture, seoName)` is rejected at write time (400). Two same-culture rows with one slug would make the culture-scoped read throw `Sequence contains more than one element`.
+- 🚨 **The same `seoName` is allowed across cultures** (e.g. `gioi-thieu` in both `en-us` and `vi-vn`) — each culture's clone keeps the source `seoName`. A duplicate `(tenant, culture, seoName)` is rejected at write time (400). Two same-culture rows with one slug would make the culture-scoped read throw `Sequence contains more than one element`.
 
 ## 3. Read a specific culture
 
@@ -145,14 +145,14 @@ Symptom: the page **content** is one language but the **master/page template** r
 
 The server keeps cultures in sync automatically; you rarely hand-author every culture:
 
-- **Content create → fan-out.** Creating a page/post/module in the **default** culture auto-creates a clone in **every other** culture, with a culture-suffixed slug `"<seo>-<culture>"` (e.g. `quan-ao` → `quan-ao-vi-vn`) and its **own** parent entity. Deleting the default-culture row cascades those clones. (Non-default rows don't fan out — they *are* translations.)
-- **Culture create → clone.** Creating a new culture clones **all** the default culture's pages/posts/modules (suffixed slugs, own parents) **and** every language key into the new culture. Deleting a culture removes all of that culture's page/post/module/language content.
+- **Content create → fan-out.** Creating a page/post/module in the **default** culture auto-creates a clone in **every other** culture, keeping the same `seoName` and content, with its **own** parent entity. Deleting the default-culture row cascades those clones. (Non-default rows don't fan out — they *are* translations.)
+- **Culture create → clone.** Creating a new culture clones **all** the default culture's pages/posts/modules (same slugs, own parents) **and** every language key into the new culture. Deleting a culture removes all of that culture's page/post/module/language content.
 - **Language key create → fan-out.** Creating a key fans out an (empty) content row per culture; deleting the key cascades all its translations.
-- **Implication:** to add a language, just create the culture (or author the default-culture content) — the siblings appear pre-populated as copies of the source; then edit each translation in place (the suffixed slug is editable). Don't hand-create one page per culture.
+- **Implication:** to add a language, just create the culture (or author the default-culture content) — the siblings appear pre-populated as copies of the source; then edit each translation in place. Don't hand-create one page per culture.
 
 ### After creating a culture
 
-`create_culture` auto-clones every default-culture page, post, and module into the new culture, and fans out every language key. Each clone is a **copy** — same `title`, `content`, `excerpt` — stamped with the new culture and given a culture-suffixed slug (`about` → `about-vi-vn`). Language-key rows are created with empty `Content` (the `DefaultContent` from the key's parent is the fallback). **The clones are duplicates, not translations.** Follow these four steps to finish:
+`create_culture` auto-clones every default-culture page, post, and module into the new culture, and fans out every language key. Each clone is a **copy** — same `seoName`, `title`, `content`, `excerpt` — stamped with the new culture. Language-key rows are created with empty `Content` (the `DefaultContent` from the key's parent is the fallback). **The clones are duplicates, not translations.** Follow these four steps to finish:
 
 **Step 1 — Create the new culture.** Call `create_culture(specificulture, displayName)` (e.g. `"vi-vn"`, `"Tiếng Việt"`). The server auto-clones every default-culture page, post, module, and language key into the new culture in a single operation. The call returns the new culture; the clones are immediately queryable.
 
@@ -174,7 +174,7 @@ list_post_contents(specificulture: "vi-vn")
 list_module_contents(specificulture: "vi-vn")
 ```
 
-3b. **Page-module associations are auto-synced** — `create_culture` now replicates source-culture page-module associations to the new culture (the handler matches cloned pages and modules by their culture-suffixed identifiers). No manual step needed.
+3b. **Page-module associations are auto-synced** — `create_culture` now replicates source-culture page-module associations to the new culture (the handler matches cloned pages and modules by their `specificulture`). No manual step needed.
 
 3c. **Translate pages, posts, and modules in place:**
 ```
@@ -183,7 +183,7 @@ update_page_content(
     title: "<Translated title>",
     content: "<Translated HTML content>",
     excerpt: "<Translated excerpt>",
-    seoName: "<translated-slug>"   // optional — replace the -vi-vn suffix with a natural slug
+    seoName: "<translated-slug>"   // optional — update to a translated slug for the new culture
 )
 ```
 Same for posts (`update_post_content`) and modules (`update_module_content`). Translate the `content` field (body HTML) — that's what the visitor sees.
