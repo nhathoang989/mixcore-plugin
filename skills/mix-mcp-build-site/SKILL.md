@@ -346,6 +346,7 @@ Tasks (for each main page):
    - If the page **exists**: call `UpdatePageContent(id: <existing-id>, ...)` — never create a duplicate.
    - If the page **does not exist**: proceed with `CreatePageContent`.
    - The Home page (`seoName: "home"` or `seoName: ""`) **almost always exists** — default to Update unless the audit proves otherwise.
+    - 🚨 **Home page MUST use `type: "Home"` (MixPageType.Home).** There is exactly ONE Home page per site. Never create a second Home page; never set `type: "Article"` on the Home page — the router uses type to resolve `/`. When updating an existing Home page, verify its current `type` is `"Home"` before touching anything else; if it's not, fix it first.
 1. `CreateTemplate(folderType: "Pages", fileName: "[PageName].cshtml", extension: ".cshtml")` — **fileName must include `.cshtml`** — or `UpdateTemplate(id)` if the template already exists (check with `ListTemplates`).
    - Model: `@model Mix.Rendering.ViewModels.PageContentViewModel`
    - Never include `@{ Layout = "..." }` — layout set via `layoutId` at content creation
@@ -517,6 +518,7 @@ After Phase 7 (Verify & Fix) completes clean, report a summary: pages built, the
 - **`fileName` MUST include `.cshtml`** — pass `fileName: "MyTemplate.cshtml"` (not `"MyTemplate"`) to every `CreateTemplate` call. The CMS builds `TemplateFilePath = /{FileFolder}/{FileName}` — a missing extension causes a "partial view not found" error at runtime. Also always pass `extension: ".cshtml"` as a separate parameter.
 - **No `@(...)` inside `@{ }` code blocks** — `@(expr)` is HTML output syntax; inside a code block write the expression directly: `var x = item.Get<int>("id", 0);` not `var x = @(item.Get<int>("id", 0));`
 - **Check before create** — for every page, template, module, and MixDB table: call the corresponding `Get`/`List` MCP tool first. If the item already exists, call `Update*` instead of `Create*`. Never create duplicates; the Home page (`seoName: "home"`) in particular almost always exists in a fresh Mixcore install.
+- **🚨 Home page MUST have `type: "Home"` (MixPageType.Home)** — exactly ONE Home page per site. When updating an existing Home page, verify its `type` is `"Home"`; fix it first if not. Never set `type: "Article"` on the site root page — the router uses type to resolve `/`.
 - **Never start a phase without reading `wwwroot/mixcontent/planning/progress-tracker.md` first**
 - **Always record MCP-generated IDs immediately** — templateId, layoutId, moduleId, table systemNames are needed by later phases
 - **Template folderType must match content type**: Pages → `"Pages"` template, Modules → `"Modules"` template, Posts → `"Posts"` template, Masters → `"Masters"` template
