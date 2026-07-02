@@ -82,6 +82,53 @@ Note the template store is not yet populated: `GetTemplateAsync` returns empty u
 
 ---
 
+## In-app notifications — `INotificationService` + `IHubContext<NotificationHub>`
+
+The notification system stores rows in `mix_notification` (AuditLogDbContext) and pushes to users in real-time via SignalR. For full architecture see [developer-notifications.md](wwwroot/system-prompts/instructions/developer/developer-notifications.md).
+
+### Service pattern
+
+Inject `INotificationService` (scoped, `mix.lib`) — it persists AND broadcasts via `IHubContext<NotificationHub>` in one call:
+
+```csharp
+// Create + broadcast in one call
+await _notificationService.CreateAsync(new Notification
+{
+    TenantId = tenantId,
+    UserId = userId,        // null = broadcast to all
+    Title = "Deploy complete",
+    Body = "Production deploy finished successfully.",
+    Type = "success",
+    Category = "deploy",
+    ActionUrl = $"/cloud/deploy/{deployId}",
+    Source = $"deploy.run.{runId}",
+    CorrelationId = runId
+});
+```
+
+### Direct IHubContext injection (services that need custom broadcast logic)
+
+```csharp
+public class MyService(IHubContext<NotificationHub> hub)
+{
+    await hub.Clients.Group(NotificationHub.UserGroup(userId))
+        .SendAsync(HubMethods.NewNotification, notification);
+    // Or broadcast to all: hub.Clients.All.SendAsync(...)
+}
+```
+
+Group naming: `NotificationHub.UserGroup(int userId)` → `"notif_{userId}"`. On connect, `NotificationHub.OnConnectedAsync` auto-joins the user's group.
+
+### REST API fallback
+
+`NotificationsController` (`api/v1/notifications`) — paginated GET, unread-count, mark-read, delete. Auth via `[Authorize]`, user resolved from JWT `MixClaims.Id`. Use `INotificationsApiClient` (loopback) in Blazor.
+
+### MCP tools
+
+`NotificationTool` (`[McpServerToolType]`) — `create_notification`, `list_notifications`, `get_unread_count`, `mark_read`, `mark_all_read`. Follows standard `McpToolBase` pattern.
+
+---
+
 ## mix.ai agents & hubs — never leak raw exceptions to the chat user
 
 🚨 **CRITICAL RULE:** any error that can reach the chat UI (a `BaseAgent`/specialist-agent catch, or a SignalR hub's `ReceiveError`/`ReceiveComplete`) must be sanitized through `AgentErrorMessages.From(ex)` (`Mix.AI.Application.Agents`) — never `ex.Message`. Raw text like `Status(StatusCode="Unavailable", Detail="Connection refused")` must stay in `LogError` only. The mapping: connectivity failures (gRPC `RpcException`, `SocketException`, `HttpRequestException`, `TimeoutException` — including inside an `AggregateException`) → "knowledge base unavailable" message; everything else → a generic retry message.
