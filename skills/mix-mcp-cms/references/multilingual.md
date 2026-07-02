@@ -11,19 +11,19 @@ How to author and render content in multiple cultures (languages) with Mixcore. 
 3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `L.GetKey(path)` (path → key) + `L.GetForCulture(key, culture)` (key → target-culture URL) — see §5.
 4. **Check the navigation URLs are translated.** Every regular nav / menu / footer link must localize **both label and URL** as language keys — `<a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a>` — never a hardcoded `href="/menu"` (that 404s in vi). The `nav.*.url` key holds the active culture's full path (vi `/thuc-don`); links stay plain (no `?culture=`; the cookie holds the culture). A nav menu hardcoded to one culture's slugs is the most common multilingual break after the switcher itself (§6).
 
-After `create_culture`, follow the post-create workflow: validate templates → create content for new culture → create page-module associations → translate language keys → verify. See §7 "After creating a culture."
+After `create_culture`, follow the post-create workflow: validate templates → translate cloned content → translate language keys → verify. Content cloning and page-module associations are automatic (backend). See §7 "After creating a culture."
 
 ## 1. Cultures
 
 - Each tenant has one or more cultures. The **first** culture is the **default**. Create one with `create_culture(specificulture, displayName)` (e.g. `en-us`, `vi-vn`).
-- 🚨 **`create_culture` creates the culture and fans out language keys — it does NOT auto-create pages, posts, or modules.** After calling `create_culture`, you MUST follow the full workflow in §7 "After creating a culture" (create pages/posts/modules for the new culture, create page-module associations, translate language keys, handle MixDB tables, verify). Skipping these steps leaves the new culture with no content.
+- 🚨 **`create_culture` creates the culture; the backend automatically handles content cloning and page-module associations.** After calling `create_culture`, follow the workflow in §7 "After creating a culture" (translate cloned content, translate language keys, handle MixDB tables, verify). The backend auto-creates per-culture content and auto-syncs page-module associations — no manual step needed for cloning or linking.
 - A site with a single culture behaves exactly like a non-multilingual site — no culture filtering is applied (see §5). You only "go multilingual" by adding a 2nd culture.
 
 ## 2. Per-culture content (Entity / EntityContent)
 
 Pages, posts, and modules store **one content row per culture** (like `MixPage`→`MixPageContent`). Each culture gets its **own** SEO name (slug) and its **own** translated HTML content.
 
-- **Create content per culture manually** — use `create_page_content(..., specificulture: "vi-vn")`, `create_post_content(..., specificulture: "vi-vn")`, `create_module_content(..., specificulture: "vi-vn")`. Pass the same `templateId` and `layoutId` as the default culture. Content is created independently for each culture — there is no auto-clone or fan-out.
+- **`create_culture` auto-creates per-culture content and page-module associations on the backend** — no manual step needed for cloning or association syncing. The backend handles both automatically when a new culture is created.
 - 🚨 **The same `seoName` is allowed across cultures** (e.g. `gioi-thieu` in both `en-us` and `vi-vn`). A duplicate `(tenant, culture, seoName)` is rejected at write time (400). Two same-culture rows with one slug would make the culture-scoped read throw `Sequence contains more than one element`.
 
 ## 3. Read a specific culture
@@ -142,18 +142,18 @@ Symptom: the page **content** is one language but the **master/page template** r
 
 ## 7. Per-culture content workflow
 
-`create_culture` creates the culture record and fans out every language key (empty `Content` per culture). It does **NOT** auto-clone pages, posts, or modules — you create per-culture content manually.
+`create_culture` creates the culture record, fans out every language key, auto-creates per-culture content, and auto-syncs page-module associations — all handled by the backend.
 
 - **Language key create → fan-out.** Creating a key fans out an (empty) content row per culture; deleting the key cascades all its translations.
-- **Content is created per culture manually.** There is no auto-clone or fan-out for pages/posts/modules. When adding a new culture, hand-author each page, post, and module in the new culture via `create_page_content(..., specificulture: "vi-vn")`.
+- **Content cloning and page-module associations are automatic.** The backend handles both when `create_culture` is called. No manual step needed.
 
 ### After creating a culture
 
-`create_culture` creates the culture and fans out language keys. Follow these steps to add content for the new culture:
+`create_culture` creates the culture; the backend auto-clones content and auto-syncs page-module associations. Follow these steps to translate the clones:
 
-**Step 1 — Create the new culture.** Call `create_culture(specificulture, displayName)` (e.g. `"vi-vn"`, `"Tiếng Việt"`). The server fans out every language key to the new culture (empty `Content`). The call returns the new culture. Pages, posts, and modules are NOT auto-created — create them manually in the following steps.
+**Step 1 — Create the new culture.** Call `create_culture(specificulture, displayName)` (e.g. `"vi-vn"`, `"Tiếng Việt"`). The backend automatically: fans out language keys, clones all default-culture pages/posts/modules, and syncs page-module associations. The call returns the new culture; cloned content is immediately queryable.
 
-**Step 2 — Validate templates use `@L` (MixLocalizer).** 🚨 Before creating content, verify every template renders user-facing strings through `IMixLocalizer` — a template with hardcoded literals will show the wrong language regardless of the active culture.
+**Step 2 — Validate templates use `@L` (MixLocalizer).** 🚨 Before translating content, verify every template renders user-facing strings through `IMixLocalizer` — a template with hardcoded literals will show the wrong language regardless of the active culture.
 
 1. **List all templates** for the site theme via `list_templates`.
 2. **Read each template** via `get_template(id)` and inspect the `content` field:
@@ -162,25 +162,28 @@ Symptom: the page **content** is one language but the **master/page template** r
    - ❌ **Missing injection:** `@L[...]` used but no `@inject IMixLocalizer L` → `CS0103` at render. Add the injection.
 3. **Fix all hardcoded templates** before continuing. Create language keys for every string with `set_language_content` (one call per key per culture), then `update_template` to replace literals with `@L["key"]`. Validate with `validate_template` after each edit. A template that mixes `@L` keys and hardcoded literals still renders the hardcoded parts in one language — be exhaustive.
 
-**Step 3 — Create content for the new culture.** For each page, post, and module that should appear in the new culture, create a content row stamped with the target `specificulture`:
+**Step 3 — Translate the auto-cloned content.** List everything filtered by the new culture, then translate in place. The backend already cloned pages/posts/modules and synced page-module associations — you only need to translate.
 
-3a. **Create pages for the new culture:**
+3a. **List the cloned content:**
 ```
-create_page_content(
-    specificulture: "vi-vn",
-    seoName: "<translated-slug>",
+list_page_contents(specificulture: "vi-vn")
+list_post_contents(specificulture: "vi-vn")
+list_module_contents(specificulture: "vi-vn")
+```
+
+3b. **Page-module associations are auto-synced by the backend** — no manual step needed.
+
+3c. **Translate pages, posts, and modules in place:**
+```
+update_page_content(
+    id: <pageId>,
     title: "<Translated title>",
     content: "<Translated HTML content>",
     excerpt: "<Translated excerpt>",
-    templateId: <same as default culture>,
-    layoutId: <same as default culture>,
-    type: "<same as default culture>"
+    seoName: "<translated-slug>"   // optional
 )
 ```
-
-3b. **Create page-module associations for the new culture's pages.** Call `create_page_module_association(pageId, moduleId, specificulture: "vi-vn")` for each module dependency. Page-module associations are per-culture and must be created manually.
-
-3c. **Create posts and modules** the same way — `create_post_content(..., specificulture: "vi-vn")` and `create_module_content(..., specificulture: "vi-vn")` for each.
+Same for posts (`update_post_content`) and modules (`update_module_content`). Translate the `content` field (body HTML) — that's what the visitor sees.
 
 3d. **Translate every language key** for the new culture:
 ```
