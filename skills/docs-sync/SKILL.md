@@ -77,9 +77,11 @@ system-prompts/
 **What is NOT mirrored to `system-prompts/skills/`:**
 - **`mix-dev-*` skills** — developer tooling, not runtime AI. The in-app AI never scaffolds modules, runs `dotnet build`, or authors C# code. These stay in `plugins/mixcore/skills/` only.
 - **`mixdev` router** — same reason, code-only.
-- **`system-prompts/system/*.md`** — locked core prompts, loaded by `SystemPromptService.LoadPrompt()`, no skill counterpart.
+- **`system-prompts/system/*.md`** — runtime prompts, loaded by `SystemPromptService.LoadPrompt()`, no skill counterpart.
 
-**Locked files:** The 3 files in `system/` are path-locked in C# via `SystemPromptService.LoadPrompt()`. Never rename or move them. They use `{{TenantName}}`, `{{Date}}`, `{{RAGContext}}` template variables.
+**Locked files:** Every file in `system/` is path-locked in C# via `SystemPromptService.LoadPrompt()`. Never rename or move them; they are loaded RAW (no frontmatter). Two groups:
+- **Core prompts (3):** `mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md` — use `{{TenantName}}`, `{{Date}}`, `{{RAGContext}}` template variables.
+- **Operational prompts (7, extracted from C#):** `rerank-documents.md` (VectorLessService LLM rerank), `conversation-summary.md` + `clarity-check.md` (TokenOptimizer), `game-ai-opponent.md` (GameAiOpponent), `llm-usage-query-parse.md` (LlmUsageQueryParser), `generate-field-value-json.md` + `generate-field-value-text.md` (MixAIService). Their `{{Key}}` placeholders are filled by `BuildFromTemplate` — unmatched `{{...}}` is stripped, so never add literal double-brace text.
 
 ---
 
@@ -222,7 +224,7 @@ Optional. Each file is plain markdown loaded on demand. No frontmatter required.
 
 **`mix-dev-*` skills are NOT synced**: These are developer tooling — the in-app AI never uses them. Don't copy them to `system-prompts/skills/`.
 
-**Locked prompt files cannot be moved**: The 3 files in `system-prompts/system/` are hardcoded in C# via `SystemPromptService.LoadPrompt()`. Never rename or relocate them.
+**Locked prompt files cannot be moved**: Every file in `system-prompts/system/` (3 core + 7 operational) is hardcoded in C# via `SystemPromptService.LoadPrompt()`. Never rename or relocate them.
 
 **`triggers:` frontmatter is required**: `SkillService.BuildSkillContextAsync` relies on triggers for keyword matching. Without them, the skill won't match user queries and won't be injected as context. Always include 5-20 relevant trigger keywords.
 
