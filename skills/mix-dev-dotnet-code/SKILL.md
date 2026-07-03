@@ -429,6 +429,71 @@ public class WidgetContentHandlers(
 
 ---
 
+## Repository paging patterns (mix.heart)
+
+`ViewQueryRepository` and `EntityRepository` (mix.heart) provide two paging strategies. Pick the right one for your use case.
+
+### OFFSET paging (`GetPagingAsync` / `GetPagingEntitiesAsync`)
+
+Use when the UI needs **page-number navigation** and/or **exact total counts** (admin grids, paginated lists with "page 3 of 47").
+
+```csharp
+var repo = new ViewQueryRepository<MyContext, MyEntity, int, MyViewModel>(uow);
+var result = await repo.GetPagingAsync(
+    m => m.Status == "active",
+    new PagingModel { PageIndex = 2, PageSize = 20 },
+    ct);
+// result.Items (20 items), result.PagingData.Total, result.PagingData.TotalPage
+```
+
+**Perf note:** Internally batched into 3 queries (COUNT + key-fetch + full-row batch), not one query per row. Still, `OFFSET` scans-and-discards skipped rows, so deep pages are linear in cost. Use keyset paging for deep/infinite-scroll feeds.
+
+**`SkipTotalCount`** — set `paging.SkipTotalCount = true` to skip the `COUNT(*)` round trip entirely. `Skip`/`Take` still apply; `Total`/`TotalPage` stay as the caller set them (e.g. a cached count, or 0 for "unknown"). Use for hot paths where exact totals aren't needed.
+
+```csharp
+var paging = new PagingModel { PageIndex = 0, PageSize = 50, SkipTotalCount = true };
+var result = await repo.GetPagingAsync(_ => true, paging, ct);
+// result.PagingData.Total == 0 — caller opted out of counting
+```
+
+### Keyset (cursor) paging (`GetKeysetPagingAsync`)
+
+Use when the UI is **infinite-scroll**, **feed-based**, or iterating **large tables** where `OFFSET` depth becomes a problem. O(log n) at any page depth, stable under concurrent inserts/deletes. Cursor = last row's `Id`. No COUNT, no OFFSET.
+
+Available on `ViewQueryRepository` (returns ViewModels). Not on `EntityRepository` (raw-entity paging).
+
+```csharp
+// First page
+var page1 = await repo.GetKeysetPagingAsync(
+    m => m.Status == "active",
+    new KeysetPagingModel<int> { PageSize = 20 },
+    ct);
+// page1.Items (20 items), page1.HasMore, page1.NextCursor (10 — last row Id)
+
+// Next page — pass cursor back
+var page2 = await repo.GetKeysetPagingAsync(
+    m => m.Status == "active",
+    new KeysetPagingModel<int> { After = page1.NextCursor, PageSize = 20 },
+    ct);
+
+// Descending (newest-first)
+var recent = await repo.GetKeysetPagingAsync(
+    _ => true,
+    new KeysetPagingModel<int> { PageSize = 20, Direction = SortDirection.Desc },
+    ct);
+```
+
+**Trade-offs:**
+| | OFFSET (`GetPagingAsync`) | Keyset (`GetKeysetPagingAsync`) |
+|---|---|---|
+| Page-number jumps | Yes | No (cursor = last seen Id) |
+| Exact total count | Yes | No (HasMore only) |
+| Deep-page cost | O(n) (scans all prior rows) | O(log n) (index seek) |
+| Stable under concurrent writes | No (rows shift) | Yes (Id-anchored) |
+| Available on | ViewQueryRepository, EntityRepository, QueryRepository | ViewQueryRepository only |
+
+---
+
 ## EF Core migration reminders
 
 Run from repo root:
