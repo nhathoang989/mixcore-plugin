@@ -136,7 +136,7 @@ Use `{MCP_PREFIX}get_page_content_by_seo_name` or `{MCP_PREFIX}get_mix_db_by_sys
 | Embed a **built SPA** (Vite/React/Vue/Svelte/Next-static) as a Mixcore page with `layoutId=null` — **only when the user explicitly requests `mixcore:mix-mcp-spa` or says they have a `dist/` folder to deploy** | `mixcore:mix-mcp-spa` |
 | Complete website from a brief — phased plan, schema + templates + pages; **also the default for any React/Vue/Svelte/frontend page/landing page request unless `mixcore:mix-mcp-spa` is explicitly requested** | `mixcore:mix-mcp-build-site` |
 | **Test / verify a built site renders** — smoke-test pages with Playwright, cross-check the data (pages/templates/MixDB rows/AI plans), or run a full fresh-install + AI-build | `mixcore:mix-verify-site` |
-| **AI chat widget** on a CMS page — floating/drawer chat, SiteKnowledgeHub SignalR wiring, streaming, login/token, auth-failure handling | `mixcore:mix-mcp-ai` |
+| **AI chat widget** on a CMS page — floating/drawer chat, SiteWikiHub SignalR wiring, streaming, login/token, auth-failure handling | `mixcore:mix-mcp-ai` |
 | **Realtime multi-user feature** — game lobby, watch party, collaborative space with rooms/groups/MixDB state; use ClientLobbyHub (`/hubs/client-lobby`) as the canonical reference pattern | `mixcore:mix-mcp-cms` (templates + JS client) + `mixcore:mix-mcp-db` (state tables) |
 | **Wiki / knowledge base / RAG** — search the site wiki, create/read/list/delete wiki docs, manage the RAG index | `mixcore:mix-mcp-rag` |
 | **Scheduled (cron) jobs** — recurring time-based jobs that fire a single Webhook or QueuePublish action; create/list/update/toggle/run-now, read run history (mix.ai `/mcp` SchedulerTool) | `mixcore:mix-mcp-schedule` |

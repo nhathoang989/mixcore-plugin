@@ -1,6 +1,6 @@
 # AI Chat Widget — UI & Copy-Paste Skeleton
 
-Drawer-style AI chat widget for `SiteKnowledgeHub`. This reference is the **UI / markup half**: CSS, HTML structure, the `wireUI` glue, master-layout include, trigger button, the full copy-paste template skeleton, the inline login form, and a troubleshooting checklist. It is deployed as a Mixcore Widget template (everything goes in the `content` field) and included via `Html.PartialAsync`.
+Drawer-style AI chat widget for `SiteWikiHub`. This reference is the **UI / markup half**: CSS, HTML structure, the `wireUI` glue, master-layout include, trigger button, the full copy-paste template skeleton, the inline login form, and a troubleshooting checklist. It is deployed as a Mixcore Widget template (everything goes in the `content` field) and included via `Html.PartialAsync`.
 
 > **Backend behavior lives in the skill body — read [`../SKILL.md`](../SKILL.md) first.** Hub connection, `AskAI` invocation, the `ReceiveChunk`/`ReceiveComplete`/`ReceiveError` handlers, conversation persistence, auth-failure detection, and the login/reconnect flow are documented there. This file is the assembled artifact you paste in; the JS inside the skeleton below is the same wiring SKILL.md explains. (Widget UI/markup is owned by the `mixcore:mix-mcp-cms` skill.)
 

@@ -45,9 +45,9 @@ If `ValidateTemplate` returns `skipped:true` (`.liquid` template), that's fine �
 | **Form templates** — `frm-mixdb-ajax`, JS handler, hidden fields, API endpoint | [references/form-templates.md](references/form-templates.md) |
 | **Multilingual site** — cultures, per-culture content (`specificulture` on create + read), culture switcher, `@L` i18n localizer, Languages portal | [references/multilingual.md](references/multilingual.md) |
 | **Live MCP tool signatures and enums** | Use `ToolSearch` with `select:{MCP_PREFIX}<tool_name>` — schemas loaded directly from server |
-| **AI chat widgets** — SiteKnowledgeHub integration, SignalR frontend, drawer pattern | Use `mixcore:mix-mcp-ai` skill |
+| **AI chat widgets** — SiteWikiHub integration, SignalR frontend, drawer pattern | Use `mixcore:mix-mcp-ai` skill |
 
-For AI chat widget tasks (floating chat, SiteKnowledgeHub, SignalR-connected widgets), invoke the **`mixcore:mix-mcp-ai`** skill instead of or alongside this one.
+For AI chat widget tasks (floating chat, SiteWikiHub, SignalR-connected widgets), invoke the **`mixcore:mix-mcp-ai`** skill instead of or alongside this one.
 
 ---
 

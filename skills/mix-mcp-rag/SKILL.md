@@ -40,7 +40,7 @@ All wiki document operations go through the MCP tools below. **Never use `mcp__m
 
 Base path on disk: `wwwroot/mixcontent/documents/wiki/<tenantId>/`
 
-🚨 **The RAG index is tenant-scoped — the disk path MUST include the numeric `<tenantId>`.** `SiteWikiService`/`RAGSearchTool` resolve the wiki base as `wwwroot/mixcontent/documents/wiki/{CurrentTenantId}/` (see `WikiFolders.SiteKnowledges`). Use the resolved tenant id — **`1` for a default single-tenant install**. Files written outside the tenant folder are NOT indexed for that tenant.
+🚨 **The RAG index is tenant-scoped — the disk path MUST include the numeric `<tenantId>`.** `SiteWikiService`/`RAGSearchTool` resolve the wiki base as `wwwroot/mixcontent/documents/wiki/{CurrentTenantId}/` (see `WikiFolders.SiteWiki`). Use the resolved tenant id — **`1` for a default single-tenant install**. Files written outside the tenant folder are NOT indexed for that tenant.
 
 ```
 wiki/

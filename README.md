@@ -42,7 +42,7 @@ Two routers sit on top and delegate to the leaf skills:
 | `mixcore:docs-sync` | `/mixcore:docs-sync` | Keep `plugins/mixcore/skills/` ↔ `wwwroot/system-prompts/` docs consistent |
 | `mixcore:mix-mcp-cms` | `/mixcore:mix-mcp-cms` | MCP-first website building — templates, schemas, content, smart queries |
 | `mixcore:mix-mcp-db` | `/mixcore:mix-mcp-db` | MixDB dynamic tables, columns, relationships, row CRUD |
-| `mixcore:mix-mcp-ai` | `/mixcore:mix-mcp-ai` | AI chat widget — SiteKnowledgeHub SignalR, streaming, auth/token |
+| `mixcore:mix-mcp-ai` | `/mixcore:mix-mcp-ai` | AI chat widget — SiteWikiHub SignalR, streaming, auth/token |
 | `mixcore:mix-mcp-rag` | `/mixcore:mix-mcp-rag` | Site wiki / knowledge base — search, create, read, list, delete |
 | `mixcore:mix-mcp-spa` | `/mixcore:mix-mcp-spa` | Embed a built SPA (Vite/React/Vue/Svelte) with `layoutId=null` |
 | `mixcore:mix-mcp-build-site` | `/mixcore:mix-mcp-build-site` | Complete website from a brief — phased plan + schema + templates + pages || `mixcore:mix-mcp-flows` | `/mixcore:mix-mcp-flows` | Flows workflows — webhook/manual/queue triggers, multi-step actions, run history |

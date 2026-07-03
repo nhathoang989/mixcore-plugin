@@ -55,7 +55,7 @@ system-prompts/
 ├── system/                           # Core system prompts (locked, no skill counterpart)
 │   ├── mixcore-focused-system-prompt.md   [LOCKED — C# ref: SystemPromptService]
 │   ├── planning-system-prompt.md          [LOCKED — C# ref: PlanningService]
-│   └── site-knowledge-system-prompt.md    [LOCKED — C# ref: SiteKnowledgeAgent]
+│   └── site-knowledge-system-prompt.md    [LOCKED — C# ref: SiteWikiAgent]
 └── skills/                           # Runtime mirror of plugin skills (non-mix-dev only)
     ├── mixcore/SKILL.md + references/
     ├── mix-mcp-cms/SKILL.md + references/
