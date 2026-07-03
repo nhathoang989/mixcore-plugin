@@ -188,7 +188,13 @@ triggers:
 
 ### references/*.md
 
-Optional. Each file is plain markdown loaded on demand. No frontmatter required. Keep each reference under ~4,000 chars to avoid context blowout when `SkillService` injects them.
+Optional. Each file is plain markdown loaded on demand. No frontmatter required. Keep each reference under ~4,000 chars — `SkillService` truncates anything longer at injection time.
+
+**References are ranked, not read in order.** Per turn, `SkillService.BuildSkillContextAsync` selects up to 2 skills (the top-scoring skill plus a secondary scoring ≥ 50% of it) and ranks each selected skill's references by query relevance — filename keyword matches weigh heaviest, then term frequency in the file body. Caps: 3 references from the primary skill, 2 from the secondary, 4 total, ~4,000 chars each. Authoring rules that follow from this:
+
+- **Name reference files with the domain keywords users actually type** (`form-templates.md`, `data-loading.md`) — the filename is the strongest ranking signal.
+- **One topic per reference file** — a grab-bag file ranks poorly for every specific query.
+- Don't rely on alphabetical position; it applies only as a fallback when nothing matches the query.
 
 ---
 
@@ -223,6 +229,8 @@ Optional. Each file is plain markdown loaded on demand. No frontmatter required.
 **Skill folder name must match `name:` frontmatter**: The directory name and the `name:` field must be identical.
 
 **Critical rules must appear in both copies**: If you add a `🚨 CRITICAL RULE` to a plugin skill, copy it to the system-prompts mirror — the in-app AI needs to know too.
+
+**Skill Map in the system prompt must track skill changes**: `system-prompts/system/mixcore-focused-system-prompt.md` contains a hand-maintained "Skill Map" table summarising every system skill's coverage (built from each `SKILL.md` frontmatter `description`). Adding, removing, renaming, or re-scoping a system skill requires updating that table in the same change — it drifts otherwise.
 
 **Don't add Claude Code-specific instructions to system-prompts**: Things like "load the mixcore skill first" or slash commands (`/mixcore:mix-mcp-cms`) have no meaning in the server-side context. The system copy should work for both audiences — keep skill-invocation instructions generic.
 
