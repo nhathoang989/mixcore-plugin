@@ -81,7 +81,7 @@ system-prompts/
 
 **Locked files:** Every file in `system/` is path-locked in C# via `SystemPromptService.LoadPrompt()`. Never rename or move them; they are loaded RAW (no frontmatter). Two groups:
 - **Core prompts (3):** `mixcore-focused-system-prompt.md`, `site-knowledge-system-prompt.md`, `planning-system-prompt.md` — use `{{TenantName}}`, `{{Date}}`, `{{RAGContext}}` template variables.
-- **Operational prompts (7, extracted from C#):** `rerank-documents.md` (VectorLessService LLM rerank), `conversation-summary.md` + `clarity-check.md` (TokenOptimizer), `game-ai-opponent.md` (GameAiOpponent), `llm-usage-query-parse.md` (LlmUsageQueryParser), `generate-field-value-json.md` + `generate-field-value-text.md` (MixAIService). Their `{{Key}}` placeholders are filled by `BuildFromTemplate` — unmatched `{{...}}` is stripped, so never add literal double-brace text.
+- **Operational prompts (10, extracted from C#):** `rerank-documents.md` (VectorLessService LLM rerank), `conversation-summary.md` + `clarity-check.md` (TokenOptimizer), `game-ai-opponent.md` (GameAiOpponent), `llm-usage-query-parse.md` (LlmUsageQueryParser), `generate-field-value-json.md` + `generate-field-value-text.md` (MixAIService), `agent-loop-rag-context.md` + `agent-loop-rag-nudge.md` + `agent-loop-clarity-gate.md` (AgentLoopService per-turn injections — missing file degrades gracefully, never fails the turn). Their `{{Key}}` placeholders are filled by `BuildFromTemplate` — unmatched `{{...}}` is stripped, so never add literal double-brace text.
 
 ---
 
