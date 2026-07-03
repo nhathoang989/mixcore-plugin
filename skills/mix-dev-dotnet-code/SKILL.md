@@ -162,6 +162,31 @@ When adding or editing an agent (`TaskAgent`, `PlanningService`, `ChatAgent`, �
 
 ---
 
+## Runtime LLM prompts live in files — never hardcode them in C#
+
+🚨 **CRITICAL RULE:** every LLM prompt (system instruction, rerank/classify/parse prompt, agent persona) lives as a `.md` file under `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/`, loaded via `ISystemPromptService`:
+
+```csharp
+var prompt = systemPromptService.BuildFromTemplate(
+    systemPromptService.LoadPrompt("my-prompt.md"),           // caches per filename, process-wide
+    new Dictionary<string, string> { ["Key"] = value });      // fills {{Key}} placeholders
+```
+
+Rules that follow:
+- **`BuildFromTemplate` STRIPS unmatched `{{...}}`** — never put literal double-brace text in a prompt file (single-brace JSON examples like `{"index":0}` are safe).
+- **A missing prompt file must land in the call-site's existing fallback**, never a new exception surface: put `LoadPrompt` *inside* the existing try/catch (rerank → BM25 order, parse → "Could not parse query", summarize → trimmed history).
+- **Filenames are path-locked** once referenced from C# — renaming the file without the call site breaks silently at runtime (`FileNotFoundException` → fallback). Update docs-sync's locked-files list when adding one.
+- Dynamic parts (`DateTime.UtcNow`, joined lists, personas) are template variables filled at call time — the file content itself is static and cached forever (`ClearCache` to refresh).
+- In tests the web-host `wwwroot` doesn't exist — seed `FakeSystemPromptService` (`mix.ai.tests/Agents/`) with filename→template pairs; it mirrors production `BuildFromTemplate` semantics.
+
+## DI lifetime gotchas (learned the hard way)
+
+- **Stateless file-loader services with instance caches must be singletons.** `SystemPromptService` and `SkillService` were scoped — their "process-lifetime" caches were per-request, so every request re-read/re-parsed the whole corpus. If a service is stateless w.r.t. the request and caches disk content, register `AddSingleton`.
+- **Captive dependency check:** a singleton factory lambda (`services.AddSingleton(sp => ...)`) must not resolve scoped services. If a scoped service is needed by both scoped and singleton consumers, either make it a singleton (when stateless) or resolve it from a created scope at call time (`scopeFactory.CreateScope()` — see `GameAiOpponent.ThinkAsync`).
+- **Never `= null` default for DI-injected services** in DI-resolved ctors (can silently inject null). Optional-with-default is fine ONLY for manually-constructed classes (factory lambdas, tests) where you control every call site — e.g. `VectorLessService(..., ISystemPromptService? promptService = null)`.
+
+---
+
 ## ViewModels (mix.heart)
 
 ViewModels are the CQRS data layer. They live in `src/modules/<module>/ViewModels/` and extend one of three base classes.

@@ -53,6 +53,31 @@ dotnet test src/tests/mix.installation.tests --filter "Trait=Database|SqlServer"
 
 > Tests must run sequentially (`[assembly: CollectionBehavior(DisableTestParallelization = true)]` is set globally). Do not add parallelism — `DatabaseService` writes to `wwwroot/mixcontent/appsettings.json`.
 
+## Build/test without disrupting the running app (verify-worktree pattern)
+
+🚨 **Never `dotnet build`/`dotnet test` in the main checkout while the app runs on `:5000`** — the build takes the app (and its `/mcp` server) down via DLL locks. Verify changes in a throwaway worktree instead:
+
+```bash
+git worktree add .worktrees/verify HEAD          # snapshot of your committed state
+cat > .worktrees/verify/NuGet.config <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="global" value="~/.nuget/packages" />
+  </packageSources>
+</configuration>
+EOF
+cd .worktrees/verify
+dotnet build src/tests/mix.ai.tests/mix.ai.tests.csproj --disable-build-servers
+dotnet test  src/tests/mix.ai.tests/mix.ai.tests.csproj --no-build --disable-build-servers
+cd - && git worktree remove .worktrees/verify --force
+```
+
+The offline `NuGet.config` matters: `api.nuget.org` can be unreachable here, and a fresh worktree has no `obj/` — the global package cache added as a *folder packageSource* satisfies restore (floating versions need a source, not a fallback folder). Uncommitted changes don't reach a `HEAD` worktree — commit first, or copy the files in.
+
+**Judge results against the broken-main baseline, not zero.** Clean `main` currently has pre-existing failures (e.g. 1 mix.ai test; `mix.installation.tests` doesn't even compile — so `dotnet build src/MixCore.Cloud.sln` FAILS on main; build `src/apps/MixCore.Cloud.Web` + your specific test project instead). To prove a failure is pre-existing: `git stash -u` → build+run the same filter → `git stash pop`. Judge your work by your own `--filter` run.
+
 ## EF Core Migrations
 
 Always run from the **repo root** (not from inside `src/`):

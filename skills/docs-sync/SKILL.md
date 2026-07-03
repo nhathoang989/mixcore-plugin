@@ -234,6 +234,10 @@ Optional. Each file is plain markdown loaded on demand. No frontmatter required.
 
 **Skill Map in the system prompt must track skill changes**: `system-prompts/system/mixcore-focused-system-prompt.md` contains a hand-maintained "Skill Map" table summarising every system skill's coverage (built from each `SKILL.md` frontmatter `description`). Adding, removing, renaming, or re-scoping a system skill requires updating that table in the same change — it drifts otherwise.
 
+**Never let a platform commit record an unpushed submodule SHA**: after editing this repo (the plugin submodule), the order is push-submodule-FIRST, then `git add plugins/mixcore` + commit the pointer bump in the platform repo. A platform commit referencing an unpushed submodule commit is unresolvable for every other checkout and CI (`fatal: remote error: upload-pack: not our ref`). Watch for `git status` showing `M plugins/mixcore` getting swept into an unrelated commit by a broad `git add`.
+
+**Renames don't rewrite history docs**: when a symbol/class rename touches documentation, update **living** docs only (skills in both copies, project READMEs, system prompts). Historical records — `docs/superpowers/plans/*`, `docs/superpowers/specs/*` — describe what was true at the time; leave the old names in them.
+
 **Don't add Claude Code-specific instructions to system-prompts**: Things like "load the mixcore skill first" or slash commands (`/mixcore:mix-mcp-cms`) have no meaning in the server-side context. The system copy should work for both audiences — keep skill-invocation instructions generic.
 
 ---

@@ -44,6 +44,8 @@ dotnet test src/tests/mix.database.migrations.tests --filter "Trait=Database|MyS
 dotnet test src/tests/mix.database.migrations.tests --filter "Trait=Database|SqlServer"
 ```
 
+**Judge by your own `--filter` run, not the suite total.** Clean `main` has pre-existing failures (and `mix.installation.tests` may not even compile — check the open issues). To prove a failure is pre-existing and not yours: `git stash -u` → run the same filter → `git stash pop`. Run tests in a verify-worktree when the app is live on `:5000` (see `mixcore:mix-dev-dotnet-cli`).
+
 ---
 
 ## Controller unit tests (no WebApplicationFactory)
@@ -128,6 +130,31 @@ internal sealed class FakeDatabaseService()
 
     public override bool SaveSettings() => true;
 }
+```
+
+### `FakeSystemPromptService` — services that load prompt files
+
+Runtime LLM prompts live under the **web host's** `wwwroot/system-prompts/system/` — that path does not exist in the test working directory, so any service calling `ISystemPromptService.LoadPrompt(...)` needs the in-memory fake at `mix.ai.tests/Agents/FakeSystemPromptService.cs`. Seed it with only the filename→template pairs the test exercises; its `BuildFromTemplate` mirrors production semantics ({{Key}} replacement + unmatched-`{{...}}` stripping), so assertions on the rendered prompt stay realistic:
+
+```csharp
+var prompts = new FakeSystemPromptService(new Dictionary<string, string>
+{
+    ["rerank-documents.md"] = "Query: \"{{Query}}\"\nDocuments:\n{{Documents}}"
+});
+var sut = new VectorLessService(dir, cfg, llm, cache, logger, promptService: prompts);
+```
+
+An unseeded filename throws `FileNotFoundException` — useful for asserting a call-site's degraded path (fallback, skip, `Skipped`).
+
+### Unreadable-file scenarios — `File.SetUnixFileMode`
+
+To prove a "never throws on unreadable file" contract, make a real file unreadable rather than mocking IO:
+
+```csharp
+if (OperatingSystem.IsWindows()) return;          // UnixFileMode is not supported on Windows
+File.SetUnixFileMode(path, UnixFileMode.None);    // exists, but File.ReadAllText throws
+try { /* assert no-throw + skipped */ }
+finally { File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite); } // else Dispose cleanup fails
 ```
 
 ---
