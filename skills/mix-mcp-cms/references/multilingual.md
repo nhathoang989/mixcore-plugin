@@ -2,6 +2,20 @@
 
 How to author and render content in multiple cultures (languages) with Mixcore. Load this when a task mentions multiple languages, cultures, translations, `specificulture`, a language/culture switcher, or `@L["..."]`.
 
+## 🚨 Terminology — Three distinct concepts (confusing MCP tool names)
+
+Mixcore MCP tools use non-obvious naming. **Always clarify which one the user means:**
+
+| User says | What they probably mean | MCP tool |
+|---|---|---|
+| "create a new language", "add Vietnamese/English/Japanese" | Add a new **culture/locale** to the tenant | `create_culture(specificulture, displayName)` |
+| "create a language key", "add a translation string", "i18n key" | Create a **localization key** (identifier for a translatable string) | `create_language(systemName)` |
+| "translate X to Vietnamese", "set text for key" | Set the **translated value** of a key in a specific culture | `set_language_content(systemName, specificulture, content)` |
+
+**Rule:** `create_culture` = locale (vi-vn). `create_language` = localization key (nav.home). **They are not the same thing.** When a user asks about "language" without qualification, ask which they mean: a new culture/locale, a new translation key, or translating existing content.
+
+`set_language_content` is the easiest path for key+value — it creates the key on demand and upserts the translation in one call.
+
 ## 0. 🚨 Pre-flight — run this BEFORE any language / multilingual work
 
 🚨 **CRITICAL RULE: never start translating or editing a multilingual template before completing these checks.** Skipping them is the cause of "the page title changed but the labels didn't", duplicate-slug 400s, switcher 404s, blank module regions, and untranslated MixDB content.
