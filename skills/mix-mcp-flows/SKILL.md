@@ -35,7 +35,7 @@ Choose the trigger that matches how the workflow should fire:
 | `Manual` | `{}` | Only when explicitly called via `TriggerWorkflow` or `POST /trigger` |
 | `Webhook` | `{"path":"/hooks/your-path"}` | When `POST /api/v1/flows/hooks/your-path` is called (anonymous) |
 | `Schedule` | `{"cron":"*/5 * * * *"}` | On a cron expression (NCrontab, 1-min minimum resolution) |
-| `QueueEvent` | `{"topic":"your-topic"}` | When a message arrives on that queue topic (Phase 3) |
+| `QueueEvent` | `{"topic":"Flows","action":"your.event"}` | Fires when a `QueuePublish` step in another workflow publishes a matching message |
 
 Common cron examples:
 - Every 5 minutes: `"*/5 * * * *"`
@@ -163,7 +163,7 @@ Inject into URLs, email addresses, message bodies, headers, and nested JSON valu
 
 🚨 **There is NO `.output` segment.** The engine stores each step's output object *directly* in the `steps` array (`WorkflowEngine` does `stepOutputs.Add(result.Output)`), so you reference a field as `{{steps.<n>.<field>}}`, **not** `{{steps.<n>.output.<field>}}` (which resolves to null → the literal placeholder leaks into the config). Per action type, the step's output object is: **AskAI** → `{content, planId?}` (use `{{steps.<n>.content}}`); **CallMcpTool** → the tool's JSON result (drill straight in, e.g. `{{steps.<n>.id}}`); **HttpRequest** → the parsed JSON response body itself (login → `{{steps.<n>.result.accessToken}}`); **SendEmail** → `{to}`; **SendSocialMessage** → the channel's API response (Telegram `{ok, result}`); **QueuePublish/SignalRBroadcast** → their echoed config.
 
-🚨 **Injection is raw string replacement, NOT JSON-escaped** (`ParameterInjector.Inject` regex-replaces over the serialized config string, then re-parses it). A value containing a double-quote or a newline breaks the re-parse and fails the step. When an upstream `AskAI` step generates HTML to inject into a `SendEmail` `body`, prompt it to emit **a single line with single-quoted attributes and zero double-quote characters**.
+**Injected values are JSON-escaped before substitution** (`ParameterInjector.Inject` calls `EscapeJsonStringContent` on each resolved value — `"`, `\`, newlines, tabs, etc. are escaped — before splicing it into the serialized config string and re-parsing). A literal double-quote or newline inside an injected value is safe; it no longer breaks the re-parse. Still prefer single-line HTML/text from an upstream `AskAI` step for readability, but it's a style preference now, not a correctness requirement.
 
 ---
 
