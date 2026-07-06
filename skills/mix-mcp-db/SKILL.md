@@ -98,7 +98,7 @@ MixDB Table (MixDbTable)         — schema stored in the main CMS DB
 
 - Add it on the schema pass — include `{"systemName":"specificulture","displayName":"Culture","dataType":"String"}` in `columnsJson`, or `create_column(tableId, "specificulture", "String")` — **before seeding** (`migrate` re-creates the table and drops rows).
 - Seed one row per culture (`en-us`, `vi-vn`, …). Culture-neutral fields (price, image URL, coordinates) can stay duplicated or be split into a shared parent table linked by a relationship — only the translating text needs a per-culture row.
-- Filter by the request culture when reading: add `{"fieldName":"specificulture","value":"<culture>","operator":"="}` to the `query_table` filter (or the template's `GetDataAsync` filter). The render culture is `Context.Items["Specificulture"]`.
+- Filter by the request culture when reading: `query_table(filterJson: '{"specificulture":"<culture>"}')`, or (for DataSource `query_rows`) add `{"fieldName":"specificulture","value":"<culture>","operator":"="}` to `filtersJson` — or use the template's `GetDataAsync` filter. The render culture is `Context.Items["Specificulture"]`.
 
 Mirrors the page/post/module per-culture pattern. See `mixcore:mix-mcp-cms` → `references/multilingual.md` §3b.
 
@@ -274,9 +274,11 @@ mcp__mixcore__update_mix_db_table(
 ```
 mcp__mixcore__query_table(
   tableName: "blog_posts",
-  filterJson: '[{"fieldName":"status","value":"Published","operator":"="}]'
+  filterJson: '{"status":"Published"}'
 )
 ```
+
+`filterJson` is a **flat key→value object** (`QueryTableAsync`'s actual shape), NOT an array of `{fieldName,value,operator}` filter objects — that array shape is `query_rows`' `filtersJson` (DataSource tables, see below), a different tool/parameter. For anything beyond simple equality, use `smart_query`/`parse_smart_query` instead.
 
 **Natural language query:**
 

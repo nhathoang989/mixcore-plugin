@@ -12,9 +12,13 @@ Mixcore CMS has **two documentation locations** that must stay in sync. They ser
 | Location | Path | Audience |
 |---|---|---|
 | **Plugin Skills** | `plugins/mixcore/skills/*/` | Claude Code agents (you, in developer sessions) |
-| **System Skills** | `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/` | The Mix AI engine — `SkillService` loads skills at runtime, `VectorLessService` indexes them for RAG, `AgentLoopService` injects skill context per turn |
+| **System Skills** | `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/` | The Mix AI engine — reachable through **two separate retrieval paths** (below) |
 
 A fact that is true in one must be true in the other. When one drifts, the in-app AI gives different answers than the developer AI — which causes user-facing inconsistencies.
+
+**The two retrieval paths for system-prompts/skills/ content** — both must stay correct, since a change here is live through both:
+1. **Automatic, per-turn** — `SkillService.BuildSkillContextAsync` ranks skills by `triggers:` keyword match against the current turn's query and injects the top-scoring skill(s)' `SKILL.md` + ranked `references/*.md` directly into `AgentLoopService`'s context, every turn, unprompted.
+2. **Explicit, on-demand** — the agent can also call the `search_backend_knowledge` MCP tool (`RagBackendSearchTool.SearchBackendKnowledgeAsync`, `src/modules/ai/mix.ai/Application/Mcp/McpTools/Rag/RagBackendSearchTool.cs`) mid-turn to BM25-search the whole `system-prompts/skills` tree directly — e.g. after an `AskAI` turn fails or gives an unhelpful answer and it needs grounded backend knowledge. Backed by `VectorLessService(WikiFolders.Skills)` — zero-dependency BM25 over Markdown, optional LLM rerank, NOT tenant-scoped. (Distinct from `RAGSearchTool`, which searches the per-tenant SiteWiki, not this skills corpus.)
 
 ---
 
@@ -217,6 +221,83 @@ Optional. Each file is plain markdown loaded on demand. No frontmatter required.
 - Skill folder names use the `mix-<family>-<name>` convention
 - Reference file names are descriptive: `razor-rules.md`, `form-templates.md`, `data-loading.md`
 - Never use PascalCase, underscores, or ALL-CAPS
+
+---
+
+## Drift Audit Recipes
+
+Run these when asked to "audit for drift" / "check docs are in sync" — they mechanize the checks that otherwise require re-reading every file pair from scratch. Run from the repo root (`platform/`).
+
+### 1. Orphaned reference files (the #1 source of drift)
+
+A file sitting in ONE side's `references/` folder with no counterpart in the other is the single biggest recurring problem — it silently diverges because nobody's told to update it. For every skill that has a plugin counterpart:
+
+```bash
+for d in plugins/mixcore/skills/*/; do
+  name=$(basename "$d")
+  sys="src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/$name"
+  [ -d "$sys" ] || continue
+  echo "=== $name ==="
+  diff <(ls "$d/references/" 2>/dev/null | sort) <(ls "$sys/references/" 2>/dev/null | sort)
+done
+```
+
+`<` lines exist only in the plugin; `>` lines exist only in system-prompts. Every `>`-only file is a candidate for: (a) genuinely being mirrored back to the plugin, (b) being misfiled under the wrong skill's folder entirely (check its actual topic against the skill's domain — a file about a DIFFERENT skill's topic sitting here means a past consolidation dumped it in the wrong place), or (c) describing a retired feature and should be deprecated/removed rather than mirrored. Don't reflexively copy every orphan to the plugin — read it first.
+
+### 2. SKILL.md content drift (ignoring the expected `triggers:` difference)
+
+```bash
+for d in plugins/mixcore/skills/*/; do
+  name=$(basename "$d")
+  sys="src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/$name/SKILL.md"
+  [ -f "$sys" ] || continue
+  diff "$d/SKILL.md" "$sys" | grep -v '^[<>] *$\|triggers:\|^[<>]   - '
+done
+```
+
+The system copy legitimately carries an extra `triggers:` frontmatter block the plugin doesn't (plugin = Claude Code name/description routing; system = `SkillService.BuildSkillContextAsync` keyword matching) — that's not drift, the grep above filters most of it. Anything else that survives the filter is real.
+
+### 3. Broken cross-skill relative links
+
+Reference files link across skill folders (`../../mix-mcp-ai/references/x.md`). A rename/move breaks these silently — markdown doesn't error on a dead link.
+
+```bash
+grep -rEon '\]\(\.\./[a-zA-Z0-9_./-]+\.md\)' src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/references/*.md src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/SKILL.md
+```
+
+For each match, resolve the relative path from the file's own location and confirm the target actually exists (`find . -name "<target-filename>"` is the fastest way to find where a file actually lives if the link is stale). A link using an OLD pre-consolidation subfolder name (`overview/`, `mixdb/`, `templates/`, `content/`, `workflows/`, `reference/`, `developer/` as a sibling of the linking file) is always broken — those subfolders don't exist anywhere under `system-prompts/skills/*/references/`; the real target lives flat inside some OTHER skill's own `references/` folder.
+
+### 4. Documented tool/class names that don't exist in source
+
+A reference can describe a tool by a name that was renamed or never actually shipped (e.g. a whole `MixDbSchemaTool` class that never existed — the real tools ended up split across `MixDbTableTool`/`MixDbColumnTool`/`MixDbTableRelationshipTool`). Spot-check by grepping the doc's claimed class/method names against the actual `[McpServerTool]`-attributed methods:
+
+```bash
+grep -rn "class .*Tool" src/modules/ai/mix.ai/Application/Mcp/McpTools/ src/cloud/*/  # real tool classes
+grep -n "McpServerTool\]" -A1 <file>.cs   # real method names inside one
+```
+
+If a doc names a class/method you can't find here, treat it as stale — either it was renamed (find what replaced it and fix the doc) or it never shipped (mark the doc deprecated, point at the real tool set, keep the rest only as historical context — see mix-mcp-db's `datasource-schema.md` for the pattern). This class of bug isn't limited to Markdown docs — it can hide in a C# `///` doc comment too (e.g. `RagBackendSearchTool`'s own summary once described an old `WikiFolders.SystemInstructions` path/constant that had been renamed to `WikiFolders.Skills` — the CODE was already correct, only the comment lagged). When auditing a tool's docs, diff its XML doc comment against its actual implementation, not just against the Markdown skill files.
+
+### 5. A whole system-only skill describing a retired architecture
+
+The 3 system-only skills (`mix-mcp-tools`, `mix-mcp-reference`, `mix-agent`) have no plugin counterpart and can go stale invisibly since nobody edits them as a side effect of touching a plugin skill. Check whether a system-only skill's content still reflects current behavior by grepping whether the C# it claims to document actually still calls it:
+
+```bash
+grep -rn "LoadPrompt(" src/modules/ai/mix.ai/ | grep -oE '"[a-zA-Z0-9/_-]+\.md"'   # every prompt file actually loaded
+```
+
+If a system-only skill describes an architecture (e.g. a classify-then-dispatch scheme, a specific routing flow) and grepping the C# for its keywords turns up nothing, or turns up a code comment saying the mechanism was retired/replaced (`#195`, `#202`-style issue references in comments are a strong signal — this codebase leaves them when retiring old paths), the skill is describing dead architecture. Don't just leave it — `SkillService` still ranks and injects it into live agent turns if its `triggers:` match a query, meaning stale content actively reaches the model. Either fix it to match current behavior, or mark it clearly `DEPRECATED` in both the `description:`/`triggers:` frontmatter AND a banner at the top of every reference file it links (a query can rank a reference file into context even when nobody opens the SKILL.md first).
+
+### 6. Skill Map staleness in the main system prompt
+
+`system-prompts/system/mixcore-focused-system-prompt.md` hand-maintains a "Skill Map" table. Check it lists every real folder:
+
+```bash
+comm -3 <(ls src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/ | sort) \
+        <(grep -oE '^\| `[a-z-]+`' src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/mixcore-focused-system-prompt.md | tr -d '|` ' | sort)
+```
+
+Non-empty output on either side means a folder exists with no table row, or a table row names a folder that no longer exists.
 
 ---
 
