@@ -239,13 +239,38 @@ protected virtual Task SaveEntityRelationshipAsync(TView view, TEntity entity, C
 protected virtual Task DeleteEntityRelationshipAsync(TView view, CancellationToken ct)
 public virtual async Task Validate(CancellationToken ct)
 
-// Command methods — IMediator is always the first parameter
+// Command methods — IMediator is always the first parameter. These act on `this` (the current
+// ViewModel instance) — they do NOT take a `TView data` argument. (Older skill drafts showed a
+// `data` param; that is wrong — verified against SimpleViewModelBase.)
 public virtual async Task<TPrimaryKey> CreateAsync(IMediator mediator, CancellationToken ct = default)
-public virtual async Task UpdateAsync(IMediator mediator, TPrimaryKey id, TView data, CancellationToken ct = default)
-public virtual async Task DeleteAsync(IMediator mediator, TView data, CancellationToken ct = default)
-public virtual async Task PatchAsync(IMediator mediator, TPrimaryKey id, TView data, IEnumerable<EntityPropertyModel> props, CancellationToken ct = default)
-public virtual async Task SaveManyAsync(IMediator mediator, List<TView> data, CancellationToken ct = default)
+public virtual async Task UpdateAsync(IMediator mediator, TPrimaryKey id, CancellationToken ct = default)  // id must equal this.Id
+public virtual async Task DeleteAsync(IMediator mediator, CancellationToken ct = default)
+public virtual async Task PatchAsync(IMediator mediator, TPrimaryKey id, IEnumerable<EntityPropertyModel> props, CancellationToken ct = default)
+public virtual async Task SaveAsync(IMediator mediator, CancellationToken ct = default)  // ⚠️ INSERT-ONLY — see rule below
 ```
+
+### 🚨 CRITICAL RULE: `SaveAsync` is INSERT-ONLY — branch Create vs Update for upsert
+
+`SaveAsync` dispatches `SaveCommand`, and the `GenericViewModelHandlers` `SaveCommand` handler
+**unconditionally** `Context.Set<TEntity>().Add(entity)` — it never checks the PK. So `SaveAsync`
+**always inserts**; calling it on a ViewModel with an existing `Id` PK-collides (SQLite `UNIQUE`
+constraint → `MixException(ServerError)`) or silently duplicates the row. It never updates.
+
+For a create-or-update endpoint, branch on `IsDefaultId` instead of calling `SaveAsync`:
+
+```csharp
+await vm.Validate(ct);
+if (vm.IsDefaultId(vm.Id))
+    await vm.CreateAsync(mediator, ct);          // Id == 0 / Guid.Empty → insert
+else
+    await vm.UpdateAsync(mediator, vm.Id, ct);   // existing Id → repo.UpdateAsync (real update)
+```
+
+`UpdateCommand` uses `repo.UpdateAsync` **and still runs `SaveEntityRelationshipAsync`**, so child
+upsert + cache invalidation keep working on the update path. **Apply the same branch inside
+`SaveEntityRelationshipAsync`** when persisting nested children that may already have an `Id` — a
+nested `child.SaveAsync(...)` has the identical insert-only trap. (The `MixTenant`/culture
+precedent only ever *creates* children on signup, so it never surfaced this.)
 
 ### Creating a ViewModel
 
@@ -291,6 +316,12 @@ public class ArticleViewModel
 
 ### Validation pattern
 
+🚨 **`IsValid` defaults `false` and is NEVER auto-set.** It is a plain `protected bool { get; set; }`
+on `QueryViewModelBase`. `base.Validate()` throws `MixException(Badrequest)` on `!IsValid` — so a
+`Validate` override that calls `await base.Validate(ct)` (or does its own `if (!IsValid) throw`)
+**always 400s, even on valid input, with an empty error message** (empty because `Errors` is empty).
+You MUST stamp `IsValid = Errors.Count == 0;` before the base call / the throw:
+
 ```csharp
 public override async Task Validate(CancellationToken ct)
 {
@@ -299,11 +330,18 @@ public override async Task Validate(CancellationToken ct)
         Errors.Add(new ValidationResult("Name is required", ["Name"]));
     if (Price < 0)
         Errors.Add(new ValidationResult("Price must be positive", ["Price"]));
-    if (!IsValid)
-        await HandleExceptionAsync(new MixException(MixErrorStatus.Badrequest,
-            [.. Errors.Select(e => e.ErrorMessage ?? string.Empty)]));
+
+    IsValid = Errors.Count == 0;              // ← REQUIRED — defaults false, never auto-set
+    await base.Validate(ct);                  // throws MixException(Badrequest, Errors) when !IsValid
 }
 ```
+
+Notes:
+- The command methods (`CreateAsync`/`UpdateAsync`/`SaveAsync`) do **not** call `Validate` — only the
+  `ValidationBehavior` pipeline (DataAnnotations on a `Data` property) runs automatically. If you want
+  custom `Validate()` enforced, **call `await vm.Validate(ct)` explicitly in the controller** before the
+  Create/Update — and then the `IsValid` stamp above is mandatory or every write 400s.
+- Precedent for the stamp: `MixThemeImportService` (`siteData.IsValid = siteData.Errors.Count == 0`).
 
 ### Entity relationship handling
 
