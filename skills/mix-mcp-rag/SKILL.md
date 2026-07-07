@@ -23,7 +23,7 @@ All wiki document operations go through the MCP tools below. **Never use `mcp__m
 | Operation | Tool | Notes |
 |---|---|---|
 | Semantic search (tenant wiki) | `mcp__mixcore__search` | Per-tenant **SiteWiki**; BM25 + optional LLM rerank; `topK` default 5 |
-| Search backend/system knowledge | `mcp__mixcore__search_backend_knowledge` | **Global** Mixcore system-instruction corpus (`wwwroot/system-prompts/instructions` — developer guides, API conventions, MCP-tool catalog); **not** tenant-scoped; `topK` default 5 |
+| Search backend/system knowledge | `mcp__mixcore__search_backend_knowledge` | **Global** Mixcore system-instruction corpus (`system-prompts/instructions` — developer guides, API conventions, MCP-tool catalog); **not** tenant-scoped; `topK` default 5 |
 | Create or update doc | `mcp__mixcore__generate_document` | Writes to disk **and** upserts into index atomically |
 | Read a doc | `mcp__mixcore__read_document` | Returns raw markdown incl. frontmatter |
 | List docs in folder | `mcp__mixcore__list_documents` | `recursive=true` for subtrees |

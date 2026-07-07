@@ -134,7 +134,7 @@ internal sealed class FakeDatabaseService()
 
 ### `FakeSystemPromptService` — services that load prompt files
 
-Runtime LLM prompts live under the **web host's** `wwwroot/system-prompts/system/` — that path does not exist in the test working directory, so any service calling `ISystemPromptService.LoadPrompt(...)` needs the in-memory fake at `mix.ai.tests/Agents/FakeSystemPromptService.cs`. Seed it with only the filename→template pairs the test exercises; its `BuildFromTemplate` mirrors production semantics ({{Key}} replacement + unmatched-`{{...}}` stripping), so assertions on the rendered prompt stay realistic:
+Runtime LLM prompts live under the **web host's** `system-prompts/system/` — that path does not exist in the test working directory, so any service calling `ISystemPromptService.LoadPrompt(...)` needs the in-memory fake at `mix.ai.tests/Agents/FakeSystemPromptService.cs`. Seed it with only the filename→template pairs the test exercises; its `BuildFromTemplate` mirrors production semantics ({{Key}} replacement + unmatched-`{{...}}` stripping), so assertions on the rendered prompt stay realistic:
 
 ```csharp
 var prompts = new FakeSystemPromptService(new Dictionary<string, string>

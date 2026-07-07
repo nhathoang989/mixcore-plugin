@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/* (in-app Mix AI engine via SkillService/VectorLessService) MUST mirror each other. Trigger on "update docs", "update skill", "sync docs", "keep docs in sync", editing any system-prompts/skills/* or plugins/mixcore/skills/* file, adding a new skill, or whenever you detect drift between the two locations. Sibling routers: mixcore:mixcore (content CRUD via MCP) · mixcore:mixdev (source-code feature work).
+description: Use for DOCUMENTATION CRUD in the mixcore-cloud repo — create/update/refine developer docs while keeping the two locations consistent: plugins/mixcore/skills/* (Claude Code agents) and src/apps/MixCore.Cloud.Web/system-prompts/skills/* (in-app Mix AI engine via SkillService/VectorLessService) MUST mirror each other. Trigger on "update docs", "update skill", "sync docs", "keep docs in sync", editing any system-prompts/skills/* or plugins/mixcore/skills/* file, adding a new skill, or whenever you detect drift between the two locations. Sibling routers: mixcore:mixcore (content CRUD via MCP) · mixcore:mixdev (source-code feature work).
 ---
 
 # Mixcore Documentation Sync
@@ -12,7 +12,7 @@ Mixcore CMS has **two documentation locations** that must stay in sync. They ser
 | Location | Path | Audience |
 |---|---|---|
 | **Plugin Skills** | `plugins/mixcore/skills/*/` | Claude Code agents (you, in developer sessions) |
-| **System Skills** | `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/` | The Mix AI engine — reachable through **two separate retrieval paths** (below) |
+| **System Skills** | `src/apps/MixCore.Cloud.Web/system-prompts/skills/*/` | The Mix AI engine — reachable through **two separate retrieval paths** (below) |
 
 A fact that is true in one must be true in the other. When one drifts, the in-app AI gives different answers than the developer AI — which causes user-facing inconsistencies.
 
@@ -52,7 +52,7 @@ plugins/mixcore/skills/
 └── mix-dev-blazor-blueprint/  # shadcn-style dashboard UI
 ```
 
-### `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/` (runtime mirror)
+### `src/apps/MixCore.Cloud.Web/system-prompts/` (runtime mirror)
 
 ```
 system-prompts/
@@ -235,7 +235,7 @@ A file sitting in ONE side's `references/` folder with no counterpart in the oth
 ```bash
 for d in plugins/mixcore/skills/*/; do
   name=$(basename "$d")
-  sys="src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/$name"
+  sys="src/apps/MixCore.Cloud.Web/system-prompts/skills/$name"
   [ -d "$sys" ] || continue
   echo "=== $name ==="
   diff <(ls "$d/references/" 2>/dev/null | sort) <(ls "$sys/references/" 2>/dev/null | sort)
@@ -249,7 +249,7 @@ done
 ```bash
 for d in plugins/mixcore/skills/*/; do
   name=$(basename "$d")
-  sys="src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/$name/SKILL.md"
+  sys="src/apps/MixCore.Cloud.Web/system-prompts/skills/$name/SKILL.md"
   [ -f "$sys" ] || continue
   diff "$d/SKILL.md" "$sys" | grep -v '^[<>] *$\|triggers:\|^[<>]   - '
 done
@@ -262,7 +262,7 @@ The system copy legitimately carries an extra `triggers:` frontmatter block the 
 Reference files link across skill folders (`../../mix-mcp-ai/references/x.md`). A rename/move breaks these silently — markdown doesn't error on a dead link.
 
 ```bash
-grep -rEon '\]\(\.\./[a-zA-Z0-9_./-]+\.md\)' src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/references/*.md src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/*/SKILL.md
+grep -rEon '\]\(\.\./[a-zA-Z0-9_./-]+\.md\)' src/apps/MixCore.Cloud.Web/system-prompts/skills/*/references/*.md src/apps/MixCore.Cloud.Web/system-prompts/skills/*/SKILL.md
 ```
 
 For each match, resolve the relative path from the file's own location and confirm the target actually exists (`find . -name "<target-filename>"` is the fastest way to find where a file actually lives if the link is stale). A link using an OLD pre-consolidation subfolder name (`overview/`, `mixdb/`, `templates/`, `content/`, `workflows/`, `reference/`, `developer/` as a sibling of the linking file) is always broken — those subfolders don't exist anywhere under `system-prompts/skills/*/references/`; the real target lives flat inside some OTHER skill's own `references/` folder.
@@ -293,8 +293,8 @@ If a system-only skill describes an architecture (e.g. a classify-then-dispatch 
 `system-prompts/system/mixcore-focused-system-prompt.md` hand-maintains a "Skill Map" table. Check it lists every real folder:
 
 ```bash
-comm -3 <(ls src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/ | sort) \
-        <(grep -oE '^\| `[a-z-]+`' src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/mixcore-focused-system-prompt.md | tr -d '|` ' | sort)
+comm -3 <(ls src/apps/MixCore.Cloud.Web/system-prompts/skills/ | sort) \
+        <(grep -oE '^\| `[a-z-]+`' src/apps/MixCore.Cloud.Web/system-prompts/system/mixcore-focused-system-prompt.md | tr -d '|` ' | sort)
 ```
 
 Non-empty output on either side means a folder exists with no table row, or a table row names a folder that no longer exists.
@@ -327,8 +327,8 @@ Non-empty output on either side means a folder exists with no table row, or a ta
 
 ```
 Plugin skills root:     plugins/mixcore/skills/
-System skills root:     src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/skills/
-System prompts root:    src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/
+System skills root:     src/apps/MixCore.Cloud.Web/system-prompts/skills/
+System prompts root:    src/apps/MixCore.Cloud.Web/system-prompts/system/
 Wiki root:              wwwroot/mixcontent/documents/wiki/
 ```
 

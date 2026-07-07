@@ -84,7 +84,7 @@ Note the template store is not yet populated: `GetTemplateAsync` returns empty u
 
 ## In-app notifications — `INotificationService` + `IHubContext<NotificationHub>`
 
-The notification system stores rows in `mix_notification` (AuditLogDbContext) and pushes to users in real-time via SignalR. For full architecture see [developer-notifications.md](wwwroot/system-prompts/instructions/developer/developer-notifications.md).
+The notification system stores rows in `mix_notification` (AuditLogDbContext) and pushes to users in real-time via SignalR. For full architecture see [developer-notifications.md](system-prompts/instructions/developer/developer-notifications.md).
 
 ### Service pattern
 
@@ -164,7 +164,7 @@ When adding or editing an agent (`TaskAgent`, `PlanningService`, `ChatAgent`, �
 
 ## Runtime LLM prompts live in files — never hardcode them in C#
 
-🚨 **CRITICAL RULE:** every LLM prompt (system instruction, rerank/classify/parse prompt, agent persona) lives as a `.md` file under `src/apps/MixCore.Cloud.Web/wwwroot/system-prompts/system/`, loaded via `ISystemPromptService`:
+🚨 **CRITICAL RULE:** every LLM prompt (system instruction, rerank/classify/parse prompt, agent persona) lives as a `.md` file under `src/apps/MixCore.Cloud.Web/system-prompts/system/`, loaded via `ISystemPromptService`:
 
 ```csharp
 var prompt = systemPromptService.BuildFromTemplate(

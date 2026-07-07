@@ -208,7 +208,7 @@ Write `feedback_*.md` and/or `project_*.md` to `~/.claude/projects/.../memory/` 
 ### Step 5 — Sync docs via mixcore:docs-sync
 Invoke `mixcore:docs-sync` skill to propagate any new facts:
 - `plugins/mixcore/skills/*/` — update if a pattern or gotcha changed
-- `wwwroot/system-prompts/instructions/developer/developer-guide.md` — new architectural facts
+- `system-prompts/instructions/developer/developer-guide.md` — new architectural facts
 - `docs/04-mixcore-cloud-technical-architecture.md` — if architecture decisions changed
 
 ---
