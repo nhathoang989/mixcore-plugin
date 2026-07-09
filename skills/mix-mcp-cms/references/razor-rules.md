@@ -163,7 +163,7 @@ Two ways to name a partial:
 <!DOCTYPE html>
 <html>
 <head>
-    <link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />  @* brand favicon — generate an SVG (see below) *@
+    <link rel="icon" type="image/svg+xml" href="/mixcontent/documents/generated-data/<slug>-favicon.svg" />  @* brand favicon — extract from site logo first, else generate an SVG (see below) *@
     @RenderSection("Seo", false)          @* MANDATORY — declare once; false only lets a child page skip it, not the master *@
     <!--[STYLES]-->                       @* Mix CMS styles injection point — keep this comment *@
     @RenderSection("Styles", false)       @* MANDATORY — declare once; false only lets a child page skip it, not the master *@
@@ -203,7 +203,7 @@ Each `@RenderSection` name must appear **exactly once**. Duplicating any section
 </head>
 ```
 
-**Favicon (generate a suitable one — do not hard-code a generic globe):** author a 32×32 `viewBox` SVG in the site's brand colors (a monogram or simple glyph), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", content: "<svg …>")` — TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it serves at `/mixcontent/documents/generated-data/<slug>-favicon.svg` — then reference it in `<head>` as shown above. Example: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. A full `https://…` public URL in `href` is an acceptable alternative.
+**Favicon (extract from the site's logo first; generate only if none provided — never a generic globe):** if the user's brief or site description includes a logo or brand image (a full `https://…` URL or an inline SVG), use it as the favicon — link the URL directly in `<head>`, or save a provided SVG as below. Otherwise author a 32×32 `viewBox` SVG in the site's brand colors (a monogram or simple glyph), write it with `write_text_file(path: "generated-data/<slug>-favicon.svg", content: "<svg …>")` — TextFileTool paths are relative to `wwwroot/mixcontent/documents/`, so it serves at `/mixcontent/documents/generated-data/<slug>-favicon.svg` — then reference it in `<head>` as shown above. Example: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#007bff"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#fff">M</text></svg>`. A full `https://…` public URL in `href` is an acceptable alternative.
 
 🚨 **Pages/Modules templates are rendered as nested `<partial>` by the host view** (`PublicPage.cshtml` does `<partial name="@Model.TemplateFilePath" model="@Model" />`). `@section` blocks declared **inside a partial are silently dropped** — Razor only honors `@section` in a view that participates in the layout (the host view / master). The host view itself supplies `@section Seo`, `@section Styles`, and `@section Scripts`, pulling Styles/Scripts from the template's `Styles`/`Scripts` fields.
 
