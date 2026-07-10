@@ -14,8 +14,9 @@ You are verifying that a **built Mixcore site** actually works against a *runnin
 - After `mixcore:mix-mcp-build-site`, an **AI site build** (install-wizard "Describe Your Site"), or any CMS change, to confirm the site renders and behaves end-to-end.
 - To smoke-test that a page, module, template, or MixDB-backed list shows real data in a browser — not just that a build is green or an MCP call returned 200.
 - To run a **full fresh-install + AI-build** locally and watch it produce a browsable site.
+- **Don't already have a known page list, or want a broader ad hoc sweep** (a11y, responsive, auth, crawl-discovered pages)? Use `mixcore:mix-verify-full-scan` instead — same tools, but it discovers its own scope rather than checking a build's expected page list.
 
-Pair with: `mixcore:mix-mcp-build-site` / `mixcore:mix-mcp-cms` (build the thing), `mixcore:mix-mcp-db` (inspect MixDB), `mixcore:mix-verify-mcp` (tool-level round-trip). Use Playwright MCP for the browser drive (load its `browser_*` tools first via `ToolSearch`, query: `playwright browser navigate snapshot click`).
+Pair with: `mixcore:mix-mcp-build-site` / `mixcore:mix-mcp-cms` (build the thing), `mixcore:mix-mcp-db` (inspect MixDB), `mixcore:mix-verify-mcp` (tool-level round-trip), `mixcore:mix-verify-full-scan` (ad hoc crawl-based scan, no known page list required). Use Playwright MCP for the browser drive (load its `browser_*` tools first via `ToolSearch`, query: `playwright browser navigate snapshot click`).
 
 ---
 
