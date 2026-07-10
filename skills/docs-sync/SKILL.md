@@ -43,6 +43,7 @@ plugins/mixcore/skills/
 ├── mix-mcp-build-site/   # Phased website build workflow (7 phases)
 ├── mix-verify-mcp/       # MCP tool round-trip verification
 ├── mix-verify-site/      # Site-wide verification checks
+├── mix-verify-full-scan/ # Ad hoc crawl-based exploratory QA scan
 ├── mix-dev-module/       # Scaffold new module projects
 ├── mix-dev-dotnet-code/  # C# 12 / .NET 10 code patterns
 ├── mix-dev-dotnet-cli/   # dotnet build/test/run commands
@@ -72,6 +73,7 @@ system-prompts/
     ├── mix-mcp-build-site/SKILL.md + references/
     ├── mix-verify-mcp/SKILL.md + references/
     ├── mix-verify-site/SKILL.md + references/
+    ├── mix-verify-full-scan/SKILL.md + references/
     ├── mix-mcp-tools/SKILL.md + references/     # MCP prompt templates (parse-query, chart-data, etc.)
     ├── mix-mcp-reference/SKILL.md + references/ # CMS reference docs (no single skill owner)
     ├── mix-agent/SKILL.md + references/         # Agent-level prompts (intent, tool, step)
@@ -106,6 +108,7 @@ Sync is now **1:1 by folder name**. When you change a skill in `plugins/mixcore/
 | `plugins/mixcore/skills/mix-mcp-build-site/` | `system-prompts/skills/mix-mcp-build-site/` | Phased website builder |
 | `plugins/mixcore/skills/mix-verify-mcp/` | `system-prompts/skills/mix-verify-mcp/` | MCP tool verification |
 | `plugins/mixcore/skills/mix-verify-site/` | `system-prompts/skills/mix-verify-site/` | Site verification |
+| `plugins/mixcore/skills/mix-verify-full-scan/` | `system-prompts/skills/mix-verify-full-scan/` | Ad hoc crawl-based QA scan |
 | `plugins/mixcore/skills/docs-sync/` | `system-prompts/skills/docs-sync/` | This skill |
 | `plugins/mixcore/skills/mix-dev-*/` | **NOT SYNCED** | Developer tooling, not runtime AI |
 | `plugins/mixcore/skills/mixdev/` | **NOT SYNCED** | Code router, not runtime AI |
