@@ -194,7 +194,7 @@ Document every table that needs to be created. Always use `BrandName` prefix in 
 ## Table: [BrandName] Products
 **Display Name:** BrandName Products
 **System Name:** (auto-generated as <site_name>_products)
-**Detail Page:** Yes — `/products/{id}` (needs folderType=Data template)
+**Detail Page:** Yes — `/db/<site_name>_products/{id}` (needs folderType=Data template; the detail route is always `/db/{tableName}/{id:int}` — integer row id, never a slug)
 
 | Column | Type | Required | Notes |
 |--------|------|----------|-------|
@@ -283,8 +283,8 @@ Tasks:
 3. Create relationships using `create_relationship` (numeric table IDs `parentId`/`childId` — look up via `GetMixDbBySystemName`)
 4. Seed initial data with `CreateRow` for each table (3–5 realistic records, full public image URLs)
 5. Verify data with `QueryTable`
-6. **(Optional) Record-detail templates** — for each table flagged in `mixdb-schema.md` as needing a per-record detail page (e.g. `/products/{id}`, `/blog-posts/{slug}`):
-   - `CreateTemplate(folderType: "Data", fileName: "<TableName>Detail.cshtml", extension: ".cshtml")` — use `@model dynamic` + `@inject Mix.DataSource.Interfaces.IMixDbDataService db`; reference columns via `@(Model.Get<T>("column_name"))`. **Validate it immediately** — `ValidateTemplate(templateId: <returnedId>)` per the Agent Protocol rule; fix `CS*`/`RZ*` errors and re-validate until `success:true` before attaching it.
+6. **(Optional) Record-detail templates** — for each table flagged in `mixdb-schema.md` as needing a per-record detail page (rendered at **`/db/{tableName}/{id:int}`**, e.g. `/db/mysite_products/7` — integer row id, `/db/` prefix mandatory, never a slug):
+   - `CreateTemplate(folderType: "Data", fileName: "<TableName>Detail.cshtml", extension: ".cshtml")` — use `@model Mix.DataSource.Models.MixDbRow` (the controller passes the already-loaded row as `Model` — **never** `@model dynamic`, never re-query the primary row; `@inject IMixDbDataService db` only for *related* rows); reference columns via `@(Model.Get<T>("column_name"))`, and link to records from list templates with `href="/db/<tableName>/@(row.Get<int>("id"))"`. **Validate it immediately** — `ValidateTemplate(templateId: <returnedId>)` per the Agent Protocol rule; fix `CS*`/`RZ*` errors and re-validate until `success:true` before attaching it.
    - Attach with `UpdateMixDbTable(systemName: "<table>", templateId: <returnedId>, layoutId: <masterLayoutId-from-phase-2>)`. If you create the template before Phase 1 runs, pass `templateId` / `layoutId` directly to `CreateMixDbTableFromPrompt` or `CreateMixDbTable` instead.
    - Tables that only feed lists/cards inside other pages or modules **don't need a Data template** — skip them.
    - Record the `templateId` per table in progress-tracker.

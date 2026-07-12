@@ -165,10 +165,14 @@ mcp__mixcore__get_mix_db_by_system_name(
 
 ### Step 5 — (Optional) Attach a record-detail template
 
-If the table needs a per-record detail page (e.g. `/blog-posts/{id}`), create a Razor template with `folderType="Data"` and assign it on the table. This is purely optional — tables that are only consumed inside other pages/modules don't need it.
+If the table needs a per-record detail page, create a Razor template with `folderType="Data"` and assign it on the table. This is purely optional — tables that are only consumed inside other pages/modules don't need it.
+
+> 🚨 **CRITICAL RULE — the detail route is `/db/{tableName}/{id:int}`** (e.g. `/db/blog_posts/7`), served by `FrontendController.DataDetail`. The `/db/` prefix is mandatory and the id is the integer row id — **never** `/{tableName}/{id}`, never `/blog/{slug}`, never a slug of any kind. Link to records from list templates with `href="/db/<tableName>/@(row.Get<int>("id"))"`.
+>
+> 🚨 **CRITICAL RULE — the Data template model is `@model Mix.DataSource.Models.MixDbRow`**, never `@model dynamic`. The controller loads the row and passes it in as `Model` — do not re-query the primary row; `@inject IMixDbDataService db` is allowed only to load *related* rows. (`@model dynamic` compiles but throws at runtime → HTTP 500.)
 
 ```
-# 1. Create the detail template (mixcore:mix-mcp-cms territory; use @model dynamic + @inject IMixDbDataService)
+# 1. Create the detail template (mixcore:mix-mcp-cms territory; @model Mix.DataSource.Models.MixDbRow — controller passes the loaded row; NEVER @model dynamic, never re-query)
 mcp__mixcore__create_template(
   fileName: "BlogPostDetail.cshtml",
   folderType: "Data",

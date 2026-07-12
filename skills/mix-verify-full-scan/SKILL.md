@@ -17,6 +17,12 @@ You are running an **autonomous, crawl-based exploratory QA scan** of a running 
 
 Pair with: `mixcore:mix-verify-site` (known-page-list post-build check — use that instead when you already have `site-architecture.md`), `mixcore:mix-mcp-cms` / `mixcore:mix-mcp-db` (fix what this scan finds). Use Playwright MCP for the browser drive (load its `browser_*` tools first via `ToolSearch`, query: `playwright browser navigate snapshot click resize`).
 
+### In-app equivalent — AIWebBuilder "Full Test"
+
+The cloud portal ships a built-in subset of this scan: **AI → Web Builder → Full Test** (`AIWebBuilder.razor`). It crawls from the CMS page list, discovers + dedupes internal links (cap 50 pages), and per page checks: render status (500/CS/RZ codes), console errors, broken images/links, dead links (`href="#"`), MixDB form field↔column contract, and a site-level favicon check. Console capture includes **parse-time/boot errors**: the iframe loads pages with `?sim=1`, which makes `SimConsolePreviewMiddleware` inject an early error-capture snippet as the first thing in `<head>` (buffered in `window.__simErrors`). Findings render grouped per page with a severity summary, and a **Fix issues** button hands the full findings list to the Ask AI panel as one message. Findings wait for load-complete + verify the iframe pathname before attributing, so nothing leaks across pages.
+
+Prefer the in-app Full Test when the user is in the portal and wants a quick QA pass + AI-driven fixes; prefer THIS skill when you need the categories it doesn't cover (a11y, responsive, auth/XSS, form submission round-trips) or a persisted wiki report.
+
 ---
 
 ## 0. Resolve the site URL
@@ -31,9 +37,10 @@ Unlike `mix-verify-site`, don't rely on `site-architecture.md`. Build the crawl 
 
 1. `list_page_contents` — seed the frontier with every published page.
 2. For each seeded page, `browser_navigate` + `browser_snapshot`, and collect every internal `<a href>` found in the accessibility tree.
-3. Dedupe against the frontier; repeat until no new internal links appear (typically converges in 1-2 passes for a normal site).
+3. **Normalize + dedupe** before enqueuing: reduce each href to its pathname (drop query/hash), trim the trailing `/`, and dedupe case-insensitively — `/shop`, `/shop/`, `/shop?page=2`, and `/shop#top` are ONE frontier entry. Skip non-page links: static assets (a dot-extension final segment other than `.html`) and infrastructure prefixes (`/api/`, `/p/`, `/a/`, `/mcp`, `/hubs/`, `/mixcontent/`).
+4. Repeat until no new internal links appear (typically converges in 1-2 passes); `/db/{table}/{id}` detail routes are pages — include them.
 
-Record the final frontier size — it's the denominator for coverage reporting at the end.
+Cap the frontier (default 50 pages) and report "coverage partial — frontier capped at N" rather than crawling unbounded. Record the final frontier size — it's the denominator for coverage reporting at the end.
 
 ---
 
@@ -62,7 +69,13 @@ browser_console_messages level=error        # must be clean
 
 **Render/console findings (`render`, `console`):** flag HTTP 500 / yellow ASP.NET error pages / `CompilationFailedException` / any `console_messages` at `error` level. For a 500, `curl -s <url>` to capture the exact `CS*`/`RZ*` code in the response body (the browser screenshot only shows "Internal Server Error").
 
-**Broken-link findings (`broken-link`):** every internal link collected during crawl gets re-navigated; a non-200 (404/500) is a finding. External links: skip by default (out of scope — this scans the site, not the internet) unless the user asks for external-link checking too.
+**Attribution guard:** wait for the page to actually finish loading before snapshotting/reading console — a slow page (CDN scripts, fonts) probed too early yields the PREVIOUS page's state attributed to the current URL. If a page doesn't reach load-complete within ~15s, record a `render`/`medium` finding ("did not finish loading — in-page checks skipped") and move on rather than mis-attributing.
+
+**Broken-link findings (`broken-link`):** every internal link collected during crawl gets HEAD-checked ONCE (dedupe across the whole scan — a link on 5 pages is checked once); a non-200 (404/500) is a finding. External links: skip by default (out of scope — this scans the site, not the internet) unless the user asks for external-link checking too.
+
+**Dead-link findings (`dead-link`):** links that go nowhere by construction — raw `href="#"`, empty `href`, `javascript:` handlers with no navigation, and `#anchor` fragments whose target id doesn't exist in the document. Common in LLM-generated nav bars ("Home/About/Contact" all `#`). Severity `medium`.
+
+**Favicon finding (`favicon`):** check ONCE per scan (site-level, first page wins). If the page declares `<link rel="icon">` (or `shortcut icon` / `apple-touch-icon`), HEAD-check the same-origin href — a 404 is `medium` ("declared but missing"). If nothing is declared, HEAD-check the browser fallback `/favicon.ico` — a 404 is `low` ("no favicon at all"). `data:` and external-CDN favicons: skip.
 
 **Accessibility findings (`a11y`):** from the same snapshot — flag images with no alt text, headings that skip a level (`h1`→`h3` with no `h2`), and interactive elements with no accessible name/role.
 
@@ -102,8 +115,8 @@ Emit findings as a table, grouped by severity (`critical` > `high` > `medium` > 
 Severity guide:
 - **critical** — section/query contract failures (crash every page using the template), any 500, any auth leak (200 where redirect/401 expected)
 - **high** — console errors, broken internal links, form data silently dropped or not persisted
-- **medium** — a11y violations, responsive overflow, unescaped XSS round-trip on non-sensitive fields
-- **low** — cosmetic a11y (minor alt-text gaps), external-link 404s (if checked)
+- **medium** — a11y violations, responsive overflow, unescaped XSS round-trip on non-sensitive fields, dead links (`href="#"` nav), a declared-but-404 favicon, a page that never finished loading
+- **low** — cosmetic a11y (minor alt-text gaps), external-link 404s (if checked), missing favicon (nothing declared and `/favicon.ico` 404s)
 
 End with a coverage line: `Scanned N pages, M forms, in <categories run>.` No external report link or service dependency (no `scoutqa` account) — this is entirely native MCP + Playwright. If the user wants the findings persisted, load `mixcore:mix-mcp-rag` and `generate_document` the report into the site wiki.
 
