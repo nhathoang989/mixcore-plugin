@@ -108,6 +108,9 @@ Publishes a message to the in-process queue. Another subscriber picks it up.
 }
 ```
 - `prompt` is required. `sessionId`, `model`, and `provider` are optional. **No `url` / `apiKey` / `body` / `json` / `responsePath`** — those were the old HTTP handler and no longer exist.
+- **`planId`** (optional) — binds the agent to an EXISTING `AIPlan`: its `update_plan`/`revise_step` calls edit that plan's steps instead of creating a fresh plan (used by the site-build review workflow's planner/updater steps). Placeholder-friendly (`"{{payload.planId}}"`).
+- **`planOnly: "true"`** (optional, only with `planId`) — marks the run as plan-AUTHORING: at turn end the loop restores the plan to `Pending` instead of finalizing it terminal (an un-executed plan must not be stamped Incomplete). The prompt should still say "do NOT execute any build step".
+- **`failOnPrefix`** (optional) — when the agent's reply STARTS with this prefix (first non-empty line, case-insensitive), the step is recorded **FAILED** even though the agent ran fine, while the reply still travels as the step's output. This is how a reply's CONTENT can drive `OnError` branch edges (e.g. a reviewer step whose `FAIL: <reason>` verdict must divert the flow to a repair step) — the engine itself only branches on step success/error.
 - `provider` selects the LLM provider (e.g. `"Groq"`, `"DeepSeek"`); omitted → default provider.
 - Tools run **auto-approved** (unattended; approval-gated tools execute without a human in the loop) and are tenant-scoped, so the agent can only touch the run's own tenant.
 - Output: `{ "content": "<final answer>", "planId"?: "…" }`. Downstream: `{{steps.<n>.content}}` (no `.output` segment — see Parameter injection).
@@ -154,12 +157,14 @@ Use `{{placeholder}}` in any string-valued config field to inject values at run 
 |---|---|
 | `{{payload.fieldName}}` | Field from the trigger payload (webhook body, manual trigger data) |
 | `{{payload}}` | Entire trigger payload as a JSON string |
-| `{{steps.0.fieldName}}` | Output field from step at index 0 (0-based — **step `order:1` is index `0`**) |
+| `{{steps.0.fieldName}}` | Output field of the step with `order:1` (**slot = order − 1**, so `steps.N` = step `order:N+1` — exact even in branch/loop graphs) |
 | `{{steps.0.result.accessToken}}` | Nested field — dot-navigate into the step's output object |
 | `{{steps.1}}` | Entire output of step at index 1 |
 | `{{email}}` | Short form — looks in payload first, then step outputs |
 
 Inject into URLs, email addresses, message bodies, headers, and nested JSON values. A placeholder that resolves to nothing is left as the literal `{{…}}` text.
+
+**Slot semantics:** step outputs live in per-`order` slots (`steps.N` = the step with `order N+1`), and a step re-run through a loop edge **overwrites its slot** — downstream references always read the latest iteration, never a stale first attempt. A slot for a step that never ran resolves to nothing (the literal placeholder leaks through — a consumer can use that as a "this lane never ran" signal).
 
 🚨 **There is NO `.output` segment.** The engine stores each step's output object *directly* in the `steps` array (`WorkflowEngine` does `stepOutputs.Add(result.Output)`), so you reference a field as `{{steps.<n>.<field>}}`, **not** `{{steps.<n>.output.<field>}}` (which resolves to null → the literal placeholder leaks into the config). Per action type, the step's output object is: **AskAI** → `{content, planId?}` (use `{{steps.<n>.content}}`); **CallMcpTool** → the tool's JSON result (drill straight in, e.g. `{{steps.<n>.id}}`); **HttpRequest** → the parsed JSON response body itself (login → `{{steps.<n>.result.accessToken}}`); **SendEmail** → `{to}`; **SendSocialMessage** → the channel's API response (Telegram `{ok, result}`); **QueuePublish/SignalRBroadcast** → their echoed config.
 
@@ -257,6 +262,25 @@ Pass `edgesJson` to `CreateWorkflow` / `UpdateWorkflow` to define conditional ro
 ```
 
 `branch` values: `Always` | `OnSuccess` | `OnError`. When edges are omitted, the engine runs steps in `order` sequence (linear mode).
+
+### Bounded loops (`maxVisits`) + `fallback` edges
+
+By default each step runs **at most once per run**. Two optional edge fields lift that for controlled retry/repair loops:
+
+```json
+[
+  {"from": 1, "to": 2, "branch": "OnSuccess"},
+  {"from": 2, "to": 4, "branch": "OnSuccess"},
+  {"from": 2, "to": 3, "branch": "OnError", "maxVisits": 2},
+  {"from": 2, "to": 3, "branch": "OnError", "fallback": true},
+  {"from": 3, "to": 2, "branch": "Always", "maxVisits": 2}
+]
+```
+
+- **`maxVisits: N`** marks a LOOP edge — it may re-enqueue an already-executed step, at most N traversals per run. 🚨 **Every edge participating in a cycle needs `maxVisits`** (re-entering either node of the cycle is a revisit); a cycle edge without it is silently dead. Non-positive values are ignored (edge degrades to once-only).
+- **`fallback: true`** marks an edge that fires **only when the node's matching non-fallback edges enqueued nothing** (loop budget spent, or every target already ran) — the loop's deterministic exit lane. Put the fallback on the node that DECIDES (e.g. the failing reviewer), not on the loop body, if only the decider's output may reach the exit target.
+- A step re-run via a loop edge **overwrites its output slot** — downstream `{{steps.N.field}}` placeholders always read the step's **latest** output (see Parameter injection).
+- Example above: step 2 failing routes to 3 (repair) at most twice; 3 loops back into 2; when the budget is spent and 2 still fails, 2's own fallback edge exits. A run guard (`(steps+1)×8` iterations) backstops malformed graphs.
 
 ---
 
