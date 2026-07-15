@@ -221,6 +221,8 @@ A master's header/footer nav renders on **every** page, so one broken `href` bre
 
 Never ship `href="#"`, `href="javascript:void(0)"`, or a path to a page you haven't created. The brand/logo `href="/"` (home) is always valid. Example layouts use placeholder paths (`/about`, `/services`, …) — replace them with links to pages you actually create or real `#section` anchors.
 
+The same rule applies inside module templates: when content rows carry URL columns (e.g. `demo_url`, `github_url`), bind the real values — `href="@(row.Get<string>("demo_url"))"` — never "fix" a dead link by substituting `javascript:void(0)`; the link stays non-functional and the Full Test scan still flags it.
+
 ### 5b. Active navigation state (shared master, no per-page slug)
 
 The master layout renders for every page and has **no `@model`**, so it cannot know the current page server-side. Set the active nav link **client-side**: match `window.location.pathname` against each link's `href`, then add an `.active` class (+ `aria-current="page"`). Match the exact path OR a section prefix (so `/docs` stays active on `/docs/api`), and guard `'/'` so the home link doesn't match everything.
@@ -454,3 +456,44 @@ When a CDN URL contains `@package-name` (scoped npm packages), escape `@` as `@@
 ```
 
 Note: `@8.0.7` does NOT need escaping because digits cannot start a Razor expression.
+
+---
+
+## 11. Client-side scripts & animation libraries (GSAP, ScrollTrigger, HLS.js, …)
+
+Runtime JavaScript errors are invisible to every server-side check — `validate_template`, `validate_site_sections`, and `validate_site_queries` verify template compilation and query syntax only. The only things that catch violations of the rules below are a real browser pass, `mixcore:mix-verify-full-scan`, or the portal's Full Test scan (AI → Web Builder → "Full Test").
+
+### 11a. Library load order — external libs in the master `<head>`, BEFORE `@RenderBody()`
+
+Module inline scripts execute in page context after `@RenderBody()`. Any library they depend on (GSAP, ScrollTrigger, HLS.js, Chart.js, …) MUST be loaded via `<script src>` in the master layout `<head>` — otherwise modules race the library and throw `gsap is not defined` (or equivalent) at page load.
+
+### 11b. Centralize shared JS once in the master
+
+Shared behaviors (HLS video init, the `frm-mixdb-ajax` submit handler, utility functions) live ONCE in the master layout and auto-init by selector (e.g. initialize every `video[data-hls]`). Duplicating the same init inline across Hero/Footer/other modules causes double-initialization conflicts and a maintenance burden — and duplicate footer markup in both the master and a module creates `id` conflicts. Keep the minimal site footer in the master; a CTA/form section belongs in its module.
+
+### 11c. Guard every DOM reference in master scroll/event listeners
+
+A master `window.addEventListener('scroll', …)` that touches `#main-nav`/`#nav-inner` throws `Cannot read properties of null (reading 'classList')` on EVERY scroll when the element is missing from the rendered page. Either make sure the master actually renders every element its scripts reference (preferred), or null-check and return early (`if (!navInner) return;`). This classic error is NOT always ScrollTrigger — a plain scroll handler in the master produces the identical message; check both when debugging.
+
+### 11d. ScrollTrigger rules
+
+- Wrap EACH module's ScrollTrigger/animation init in its own try-catch — one failing module must not prevent the others from initializing, and the console then names the culprit.
+- Null-check every target (trigger, pin, animated elements) before creating a ScrollTrigger; log a warning and return early if any required element is missing.
+- Keep `pinSpacing: true` (the default). `pinSpacing: false` causes layout overlap that breaks ScrollTrigger's internal pin-spacer logic and manifests as the same null-`classList` error on scroll.
+
+### 11e. Sequencing with loading screens
+
+If a LoadingScreen module gates the page, set a synchronous flag before dispatching the completion event — `window.__loadingComplete = true; document.dispatchEvent(new Event('loading-complete'));` — and have entrance animations (e.g. Hero GSAP) check the flag first, then fall back to listening, so they neither run prematurely nor miss an event that already fired.
+
+### 11f. Count-up number animations
+
+Tween a proxy object — `innerText` is not a tweenable property:
+
+```js
+var counter = { value: 0 };
+gsap.to(counter, { value: target, duration: 2, onUpdate: function () { el.textContent = Math.round(counter.value); } });
+```
+
+### 11g. Debugging runtime errors
+
+Browser console line numbers map to the RENDERED HTML, not the template source — view source at that line to locate the script block, then trace back to the owning template (`get_template` on the module or master). `list_page_module_associations` + `get_module_content` map which modules render on the failing page.
