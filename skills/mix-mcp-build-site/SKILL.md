@@ -346,6 +346,7 @@ Tasks (for each main page):
    - If the page **exists**: call `UpdatePageContent(id: <existing-id>, ...)` — never create a duplicate.
    - If the page **does not exist**: proceed with `CreatePageContent`.
    - The Home page (`seoName: "home"` or `seoName: ""`) **almost always exists** — default to Update unless the audit proves otherwise.
+   - 🚨 **Check the route first:** every new/changed `seoName` must pass the reserved-system-routes check in `mix-mcp-cms` → `references/page-routes.md` (no `api`, `p`, `cloud`, `admin`, `a`, `init`, `account`, `error`, `mcp`, `hub(s)`, `mixcontent`, … first segment; not already used by a page or post). Plan the sitemap's URLs with this list too.
     - 🚨 **Home page MUST use `type: "Home"` (MixPageType.Home).** There is exactly ONE Home page per site. Never create a second Home page; never set `type: "Article"` on the Home page — the router uses type to resolve `/`. When updating an existing Home page, verify its current `type` is `"Home"` before touching anything else; if it's not, fix it first.
 1. `CreateTemplate(folderType: "Pages", fileName: "[PageName].cshtml", extension: ".cshtml")` — **fileName must include `.cshtml`** — or `UpdateTemplate(id)` if the template already exists (check with `ListTemplates`).
    - Model: `@model Mix.Rendering.ViewModels.PageContentViewModel`
