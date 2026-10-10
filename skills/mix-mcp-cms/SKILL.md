@@ -39,6 +39,7 @@ If `ValidateTemplate` returns `skipped:true` (`.liquid` template), that's fine �
 | **MixDB queries in Razor** — `IMixDbDataService`, `MixDbRow`, `MixDbFilter`, naming conventions | [references/mixdb-in-razor.md](references/mixdb-in-razor.md) |
 | **Data loading paths** — `QueryTable` vs `QueryRows` vs Razor injection, JSON filter format | [references/data-loading.md](references/data-loading.md) |
 | **Content creation** — folderType verification, template assignment, phase plan | [references/content-creation.md](references/content-creation.md) |
+| **Page routes / `seoName`** — reserved system routes (`/api`, `/p`, `/admin`, `/mcp`, …), check before create/update of a page URL | [references/page-routes.md](references/page-routes.md) |
 | **Template ViewModels** — Page/Post/Module/Widget `Model` properties, `@model` matrix | [references/viewmodels.md](references/viewmodels.md) |
 | **Design system format & gate** — resolve/author/bootstrap `design.md`, token→CSS-var materialization | [references/design-system.md](references/design-system.md) |
 | **Global default `design.md`** — baseline tokens used when a site has no override | [references/design.md](references/design.md) |
@@ -236,7 +237,7 @@ writing any Page, Post, Module, or Widget template. `Content`/`Excerpt` hold sem
 | "update page template" | `UpdateTemplate(id, content: ...)` → **`ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** Then **check linked modules**: `ListPageModuleAssociations(pageId)` → read each module's template via `GetTemplate` → verify the page template's wrapper HTML/CSS is still compatible with each module template's output. If the page layout changed (grid columns, spacing, breakpoints), update affected module templates too (and validate each). See [content-creation.md → Update Workflow](references/content-creation.md). |
 | "update module template" | `UpdateTemplate(id, content: ...)` → **`ValidateTemplate(id)` → fix errors → re-validate until `success:true`.** Then **check parent pages**: `GetPagesWithModule(moduleId)` → read each page's template → verify the module's new output still fits each page's container structure. |
 | "validate / compile-check a template" | `ValidateTemplate(templateId)` — returns `{ success, skipped, errors:[{ line, message, code }] }`. Fix `CS*`/`RZ*` errors before creating page content. `.liquid` → `skipped:true`. Pre-flight raw markup with `ValidateTemplate(content, folderType)`. **Loop `Validate → fix (SearchReplaceTemplate/UpdateTemplate) → Validate` until `success:true`.** |
-| "create a page" | Verify templateId + layoutId folderTypes → `CreatePageContent` — see [content-creation.md](references/content-creation.md) |
+| "create a page" | Verify templateId + layoutId folderTypes → **check `seoName` against [page-routes.md](references/page-routes.md)** → `CreatePageContent` — see [content-creation.md](references/content-creation.md) |
 | "create a module" | Verify `templateId` has `folderType="Modules"` → `CreateModuleContent` |
 | "create a post" | Verify templateId + layoutId → `CreatePostContent` |
 | "create MixDb table" | `CreateMixDbTableFromPrompt` (AI) — use brand prefix in displayName |

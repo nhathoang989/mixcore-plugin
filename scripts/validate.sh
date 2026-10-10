@@ -23,7 +23,9 @@ if grep -rnE "skills/(${old})/" skills 2>/dev/null; then
 fi
 
 echo "==> 4. no machine-absolute paths in skills (C:\\... , /Users/, /home/<user>)"
-if grep -rnE '[A-Za-z]:\\|/Users/|/home/[a-z]' skills 2>/dev/null; then
+# Drive letter only when it starts a token (not the tail of a word like "posts:\n" or "triggers:\|")
+# and is followed by a path character — escape sequences such as \n / \" / \| are not paths.
+if grep -rnE '(^|[^A-Za-z0-9_])[A-Za-z]:\\[A-Za-z0-9._$-]|/Users/|/home/[a-z]' skills 2>/dev/null; then
   echo "   ^ machine-absolute path leak"; fail=1
 fi
 

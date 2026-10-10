@@ -37,6 +37,10 @@ MixPageType enum (Mix.Constant.Enums.MixPageType):
 
 **🚨 A home page created with `type: "Article"` is WRONG.** The site can only have ONE `type: "Home"` page. The CMS uses this type to identify which page is the site root. Creating the home page as `"Article"` breaks the site's root URL resolution.
 
+## 🚨 CRITICAL RULE: Check reserved system routes before setting `seoName`
+
+A page's `seoName` is its public URL (`/{seoName}`) and shares that namespace with posts and with the platform's own routes (`/api`, `/p`, `/admin`, `/account`, `/mcp`, `/hubs`, `/mixcontent`, …). **Before every `CreatePageContent`, and every `UpdatePageContent` that sets or changes `seoName`, load [page-routes.md](page-routes.md)** and check the name against its reserved-routes table and against existing pages/posts (`ListPageContents`, `ListPostContents`). Pick another name on a collision and say so in your summary.
+
 ## Required folderType per content type
 
 | Content type | `templateId` folderType | `layoutId` folderType |
