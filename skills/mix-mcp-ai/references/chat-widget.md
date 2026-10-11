@@ -239,10 +239,10 @@ function wireUI() {
     if (overlay) overlay.addEventListener('click', function () { setOpen(false); });
     if (closeBtn) closeBtn.addEventListener('click', function () { setOpen(false); });
 
-    // Send on button click
+    // Send on button click (ignored while a turn is in flight — `busy` is reset only by endTurn())
     if (sendBtn) sendBtn.addEventListener('click', function () {
         var text = input ? input.value.trim() : '';
-        if (!text) return;
+        if (!text || busy) return;
         input.value = '';
         autoResize(input);
         sendMessage(text);
@@ -256,7 +256,7 @@ function wireUI() {
                 sendBtn.click();
             }
         });
-        input.addEventListener('input', function () { autoResize(input); });
+        input.addEventListener('input', function () { autoResize(input); setSend(); });
     }
 
     // Escape key closes drawer
@@ -355,8 +355,9 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
     </div>
 </div>
 
-<script src="https://unpkg.com/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Pin exact CDN versions + crossorigin="anonymous" (an unpinned "latest" can drift to a build without the file → every page logs an opaque "Script error.") -->
+<script src="https://unpkg.com/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous"></script>
 <script>
 (function () {
     var hub = null;
@@ -364,6 +365,9 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
     var isOpen = false;
     var activeBubble = null;
     var rawText = '';
+    var busy = false;           // a turn is in flight — cleared ONLY by endTurn()
+    var TURN_IDLE_MS = 90000;   // no chunk/complete/error for this long → recover the widget
+    var watchdog = null;
 
     // ---- Persistence ----
     var HISTORY_KEY = 'mix_chat_history';
@@ -373,9 +377,12 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
     function loadHistory() {
         try {
-            var raw = localStorage.getItem(HISTORY_KEY);
-            history = raw ? JSON.parse(raw) : [];
-            if (!Array.isArray(history)) history = [];
+            var parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            // Shape-validate: storage written by an older build may hold null/malformed rows.
+            // Keep only {known role, string text} so poisoned storage self-heals on the next view.
+            history = Array.isArray(parsed) ? parsed.filter(function (m) {
+                return m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string';
+            }) : [];
         } catch (e) { history = []; }
         sessionId = localStorage.getItem(SESSION_KEY)
             || ('sk-' + Date.now() + '-' + Math.random().toString(36).slice(2));
@@ -408,6 +415,12 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
         // Delete the server-side conversation too — orphaned sessions accumulate forever otherwise.
         if (hub && oldSid) hub.invoke('ClearHistory', oldSid).catch(function () {});
     }
+    function newChat() {           // wire to a "New chat" button; also call from sign-out
+        endTurn();
+        clearHistory();
+        var m = msgs(); if (m) m.innerHTML = '';
+    }
+    window.mixChatNew = newChat;
 
     // ---- Hub ----
     function getToken() { return localStorage['mix_access_token'] || ''; }
@@ -420,12 +433,22 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
         hub.on('ReceiveChunk', appendChunk);
         hub.on('ReceiveComplete', function (vm) {
-            var ok = !vm || vm.success !== false;
-            var fallback = (vm && (vm.content || vm.Content)) || '';
-            if (!ok) { showError((vm && (vm.error || vm.Error)) || 'AI request failed.'); return; }
-            finalizeMessage(fallback);
+            try {
+                var ok = !vm || vm.success !== false;
+                if (!ok) showError((vm && (vm.error || vm.Error)) || 'AI request failed.');
+                else finalizeMessage((vm && (vm.content || vm.Content)) || '');
+            } catch (e) { console.warn('[chat] complete render failed', e); }
+            finally { endTurn(); }      // a render throw can never leave Send disabled
         });
-        hub.on('ReceiveError',    function (err) { showError((err && (err.detail || err.message)) || 'Error'); });
+        hub.on('ReceiveError', function (err) {
+            try { showError((err && (err.detail || err.message)) || 'Error'); }
+            catch (e) { console.warn('[chat] error render failed', e); }
+            finally { endTurn(); }
+        });
+        hub.onclose(function () {       // connection dropped mid-turn → release the busy state
+            if (!busy) return;
+            try { showError('Connection lost — please try again.'); } finally { endTurn(); }
+        });
         // Connect first, gate on failure — no token pre-check. handleConnectError reveals the
         // sign-in gate only on a real auth failure (401, or an HTML-login redirect). See
         // § Auth failure → full-cover sign-in gate for the detection body + showGate().
@@ -435,22 +458,53 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
     window.addEventListener('beforeunload', function () { if (hub) hub.stop(); });
 
     // ---- Markdown ----
+    // Single render choke point: coerce to string FIRST (marked.parse throws on null/undefined),
+    // and fall back to escaped plain text if marked is missing or throws.
     function fmt(t) {
-        if (typeof marked !== 'undefined') return marked.parse(t, { breaks: true, gfm: true });
-        return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        var s = (t === null || t === undefined) ? '' : String(t);
+        if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+            try { return marked.parse(s, { breaks: true, gfm: true }); } catch (e) { /* fall through */ }
+        }
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    }
+
+    // ---- Turn state ----
+    // endTurn() is the ONLY place busy is cleared. Every terminal path — complete, error,
+    // invoke rejection, hub.onclose, idle watchdog, newChat — goes through it.
+    function endTurn() {
+        clearTimeout(watchdog); watchdog = null;
+        busy = false; rawText = ''; activeBubble = null;
+        setSend();
+    }
+    function armWatchdog() {        // re-armed on every chunk, so long streamed answers are never cut off
+        clearTimeout(watchdog);
+        watchdog = setTimeout(function () {
+            if (!busy) return;
+            try { showError('No response — please try again.'); } finally { endTurn(); }
+        }, TURN_IDLE_MS);
+    }
+    function setSend() {
+        var input = document.getElementById('mix-chat-input');
+        var btn = document.getElementById('mix-chat-send-btn');
+        if (btn) btn.disabled = busy || !(input && input.value.trim());
     }
 
     // ---- Messaging ----
     function sendMessage(text) {
+        if (busy) return;
         if (!hub || hub.state !== signalR.HubConnectionState.Connected) {
             showError('Not connected — please wait a moment and try again.'); return;
         }
+        busy = true; setSend();
         addUserBubble(text);
         addAssistantBubble();
         history.push({ role: 'user', text: text, ts: Date.now() });
         persistHistory();
+        armWatchdog();
         hub.invoke('AskAI', text, sessionId, null, null, null)  // 5 args: message, sessionId, provider, model, thinking (SignalR ignores C# defaults — pass all five)
-           .catch(function (e) { showError(e.toString()); });
+           .catch(function (e) {
+               try { showError((e && e.message) || String(e)); } finally { endTurn(); }
+           });
     }
 
     function addUserBubble(text) {
@@ -468,6 +522,7 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
     }
     function appendChunk(chunk) {
         if (!activeBubble) return;
+        armWatchdog();
         activeBubble.classList.remove('mix-chat-typing');
         rawText += chunk;
         activeBubble.innerHTML = fmt(rawText);
@@ -480,16 +535,14 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
         activeBubble.innerHTML = fmt(finalText);
         history.push({ role: 'assistant', text: finalText, ts: Date.now() });
         persistHistory();
-        rawText = ''; activeBubble = null; scrollBottom();
+        scrollBottom();             // rawText/activeBubble are reset by endTurn()
     }
     function showError(msg) {
         if (activeBubble) {
             activeBubble.classList.remove('mix-chat-typing');
             activeBubble.classList.add('mix-chat-error');
             activeBubble.textContent = 'Error: ' + msg;
-            activeBubble = null;
         }
-        rawText = '';
     }
     function msgs() { return document.getElementById('mix-chat-messages'); }
     function scrollBottom() { var m = msgs(); if (m) m.scrollTop = m.scrollHeight; }
@@ -523,7 +576,7 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
         if (sendBtn) sendBtn.addEventListener('click', function () {
             var t = input ? input.value.trim() : '';
-            if (!t) return;
+            if (!t || busy) return;
             input.value = ''; autoResize(input); sendMessage(t);
         });
 
@@ -531,7 +584,7 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
             input.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
             });
-            input.addEventListener('input', function () { autoResize(input); });
+            input.addEventListener('input', function () { autoResize(input); setSend(); });
         }
 
         document.addEventListener('keydown', function (e) {
@@ -546,9 +599,12 @@ This is the entire content field for `CreateTemplate`. Paste as-is into the MCP 
 
     document.addEventListener('DOMContentLoaded', function () {
         loadHistory();    // restore messages + sessionId from localStorage FIRST
-        renderHistory();  // paint restored bubbles
-        initHub();        // then connect (sessionId now in scope for AskAI)
+        // Guarded: a throw while painting history (or a blocked SignalR CDN) must never
+        // stop wireUI()/setSend() — otherwise the drawer is dead and Send never enables.
+        try { renderHistory(); } catch (e) { console.warn('[chat] history render failed', e); }
         wireUI();
+        setSend();
+        try { initHub(); } catch (e) { console.warn('[chat] hub init failed', e); }  // sessionId already in scope for AskAI
     });
 })();
 </script>
@@ -703,3 +759,9 @@ Call `hideGate()` from the hub's successful `.start()` too, so a valid token nev
 | `QuotaExceededError` after long sessions | History grew past the 5 MB localStorage cap | Cap at 50 messages, FIFO trim before each `setItem`, and add a quota-exceeded catch that drops the oldest half |
 | New user on shared browser sees previous user's chat | `mix_chat_history` not cleared on sign-out | Call `clearHistory()` from the sign-out / token-rotation flow |
 | `JSON.parse` throws on init and breaks the widget | Corrupted/legacy value in `mix_chat_history` | Wrap `JSON.parse` in `try/catch` and fall back to `history = []` |
+| Send stays disabled forever after a reply or an error | `busy = false` written after render calls (a render throw skips it), or a terminal path (invoke rejection, connection drop, a turn that never completes) never resets it | One `endTurn()` is the only reset; `onComplete`/`onError` use `try/catch/finally { endTurn(); }`; invoke `.catch` → `endTurn()`; `hub.onclose` → `endTurn()` if busy; idle watchdog (`TURN_IDLE_MS`) re-armed on every chunk |
+| Launcher visible but drawer/Send dead from page load | An unguarded throw in `renderHistory()` (malformed stored row) or `initHub()` (SignalR CDN blocked) aborted init before `wireUI()` bound any listener | Wrap `renderHistory()` and `initHub()` in `try/catch`; `wireUI()` + `setSend()` always run. A dead control can have several independent causes — check all |
+| `marked(): input parameter is undefined or null` | `fmt()` received `null`/`undefined` (missing `vm.content`, or a poisoned history row) | `fmt()` coerces to string as its first statement and wraps `marked.parse` in `try/catch`, falling back to the escaped plain-text branch |
+| Error keeps firing in existing browsers after the JS fix | A bad entry persisted in `mix_chat_history` by an older build | Shape-validate after `JSON.parse` — keep only entries with role `user`/`assistant` and a string `text`; non-array → `[]`. Storage self-heals on the next view |
+| Every page logs an opaque `Script error.` | Unpinned CDN URL drifted to a release without the expected file (404 body executed as script), served cross-origin without CORS | Pin exact versions (`marked@12.0.2`, `signalr@@8.0.7`) and add `crossorigin="anonymous"` so real errors surface; harden callers against a missing API (`typeof marked.parse === 'function'`) |
+| Whole inline script dies with `SyntaxError` though `validate_template` passed | JS inside `<script>` was HTML-escaped (`&amp;&amp;` instead of `&&`) — the HTML parser does not decode entities there | Never HTML-escape JS in `<script>`; re-read the stored template with `get_template` to confirm the real bytes (`validate_template` does not parse JS) |

@@ -126,6 +126,18 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 ```
 
+### Custom (multi-step) submit on a site whose master auto-wires forms
+
+A form that needs its own chained writes (e.g. create parent row → child row → junction row) must not also be submitted by the master's generic single-table handler. Preferred: omit the `frm-mixdb-ajax` class so the master never wires it. If the master wires **every** form regardless, register the custom handler in the **capture** phase and stop propagation first, so the generic handler never runs:
+
+```javascript
+form.addEventListener('submit', function (e) {
+    e.preventDefault(); e.stopPropagation();   // first statements — master handler never sees it
+    // chained writes against the AUTHENTICATED data-source endpoint with the Bearer token
+    // (not the anonymous /mixdb/data/ endpoint); report per-step status; re-enable submit on any failure
+}, true);                                      // capture phase
+```
+
 ---
 
 ## Injecting hidden computed fields (e.g. cart totals)

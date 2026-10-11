@@ -255,6 +255,17 @@ filterMixDb('my_db', 'orders', {
 });
 ```
 
+**Row key casing is not guaranteed.** Don't assume the `/filter` row objects use the column's snake_case name — and never derive a fallback by upper-casing only the first letter (`use_case_id` → `Use_case_id` matches nothing and silently yields empty values, e.g. blank CSV exports). Read fields through a defensive accessor:
+
+```javascript
+function field(row, col) {               // col is the snake_case column name
+    var pascal = col.replace(/(^|_)([a-z0-9])/g, function (_, __, c) { return c.toUpperCase(); });
+    var camel  = pascal.charAt(0).toLowerCase() + pascal.slice(1);
+    var v = row[col] !== undefined ? row[col] : row[pascal] !== undefined ? row[pascal] : row[camel];
+    return v === undefined || v === null ? '' : v;
+}
+```
+
 ---
 
 ### Single row

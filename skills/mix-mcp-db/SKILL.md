@@ -450,6 +450,8 @@ mcp__mixcore__create_relationship(
 
 `type`: `OneToMany` | `ManyToMany`
 
+🚨 **Join key columns, never business codes to free text.** `sourceColumnName`/`destinationColumnName` must hold the same identifier (`id` ↔ `request_id`). A relationship joining e.g. a code (`'UC-…'`) to a title column always returns an empty set — and no gate flags it, since an always-empty join is not an error. Delete such a relationship rather than leaving it beside a working one. For many-to-many, prefer a dedicated **junction table** (`<prefix>_request_use_cases` with `request_id`, `use_case_id`, …). Junction rows have no FK constraint, so client/Razor code resolving their ids must skip dangling ids (`if (!byId[id]) continue;` — an unguarded dictionary lookup throws `KeyNotFoundException`).
+
 | Field | Required | Notes |
 |---|---|---|
 | `parentId` | ✅ | Table ID of the parent (one side) |

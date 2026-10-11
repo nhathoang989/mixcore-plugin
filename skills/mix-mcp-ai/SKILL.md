@@ -10,6 +10,7 @@ You are implementing **AI chat backend functions** for Mixcore CMS — the Signa
 - **This skill covers:** Hub connection setup, `AskAI` invocation, `ReceiveChunk`/`ReceiveComplete`/`ReceiveError` handlers, auth failure detection, login flow, token management, markdown rendering JS, suggestion button JS handlers, MCP deployment.
 - **Not covered here:** Drawer/overlay HTML structure, CSS layout, trigger button HTML, header button HTML/CSS. For UI implementation invoke the **`mixcore:mix-mcp-cms`** skill (it owns Razor templates and CSS-in-content-field).
 - **Full copy-paste widget (CSS + HTML + assembled skeleton):** [references/chat-widget.md](references/chat-widget.md) — the UI/markup half; the JS inside its skeleton is the same wiring this skill documents below.
+- **Hub integration reference (incl. the server-side `LoadHistory` persistence alternative and the typed `ReceiveEvent` stream):** [references/ai-chat-widget.md](references/ai-chat-widget.md).
 
 ---
 
@@ -71,18 +72,44 @@ window.addEventListener('beforeunload', function () { if (hub) hub.stop(); });
 
 ---
 
-## Sending a message
+## Sending a message — and the single `endTurn()` reset
+
+🚨 **CRITICAL RULE: `endTurn()` is the ONLY place the busy flag is cleared, and every terminal path goes through it** — `onComplete`, `onError`, the `AskAI` invoke rejection, `hub.onclose`, the idle watchdog, and "New chat". A reset written *after* render calls (`bubble.innerHTML = fmt(...)`; `busy = false;`) is skipped by any render throw and leaves Send disabled for the rest of the session.
 
 ```js
-var sid = null;   // session ID — null starts a new session, reuse to continue
+var sid = null;            // session ID — null starts a new session, reuse to continue
+var busy = false;          // a turn is in flight
+var TURN_IDLE_MS = 90000;  // no chunk/complete/error for this long → recover
+var watchdog = null;
+
+function endTurn() {
+    clearTimeout(watchdog); watchdog = null;
+    rawText = ''; bubble = null; busy = false;
+    setSend();             // re-enable Send if the input has text
+}
+
+function armWatchdog() {   // re-armed on every chunk so long streamed answers are never cut off
+    clearTimeout(watchdog);
+    watchdog = setTimeout(function () {
+        if (!busy) return;
+        try { if (bubble) bubble.textContent = 'No response — please try again.'; } finally { endTurn(); }
+    }, TURN_IDLE_MS);
+}
 
 function send(message) {
     if (busy || !message.trim()) return;
-    busy = true;
+    busy = true; setSend();
     sid = sid || crypto.randomUUID();
+    armWatchdog();
     hub.invoke('AskAI', message, sid, null, null, null)
-       .catch(function (e) { /* show error */ busy = false; });
+       .catch(function (e) {
+           try { if (bubble) bubble.textContent = 'Error: ' + ((e && e.message) || e); } finally { endTurn(); }
+       });
 }
+
+hub.onclose(function () {  // connection dropped mid-turn
+    if (busy) endTurn();
+});
 ```
 
 ---
@@ -95,30 +122,30 @@ var bubble  = null; // current AI message element
 
 function onChunk(chunk) {
     if (!bubble) return;
+    armWatchdog();
     rawText += chunk;
     bubble.innerHTML = fmt(rawText);
     msgs.scrollTop = msgs.scrollHeight;
 }
 
 function onComplete(vm) {
-    var ok       = !vm || vm.success !== false;
-    var fallback = (vm && (vm.content || vm.Content)) || '';
-    if (!ok) {
-        var errMsg = (vm && (vm.error || vm.Error)) || 'AI request failed.';
-        if (bubble) bubble.textContent = errMsg;
-    } else {
-        if (bubble) bubble.innerHTML = fmt(rawText || fallback);
-    }
-    rawText = '';
-    bubble = null;
-    busy = false;
+    try {
+        var ok       = !vm || vm.success !== false;
+        var fallback = (vm && (vm.content || vm.Content)) || '';
+        if (!ok) {
+            var errMsg = (vm && (vm.error || vm.Error)) || 'AI request failed.';
+            if (bubble) bubble.textContent = errMsg;
+        } else {
+            if (bubble) bubble.innerHTML = fmt(rawText || fallback);
+        }
+    } catch (e) { console.warn('[chat] complete render failed', e); }
+    finally { endTurn(); }
 }
 
 function onError(err) {
-    if (bubble) bubble.textContent = (err && (err.detail || err.message)) || 'Error.';
-    rawText = '';
-    bubble = null;
-    busy = false;
+    try { if (bubble) bubble.textContent = (err && (err.detail || err.message)) || 'Error.'; }
+    catch (e) { console.warn('[chat] error render failed', e); }
+    finally { endTurn(); }
 }
 ```
 
@@ -138,9 +165,11 @@ var history = [];   // [{role: 'user'|'assistant', text, ts}]
 
 function loadHistory() {
     try {
-        var raw = localStorage.getItem(HISTORY_KEY);
-        history = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(history)) history = [];
+        var parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        // Shape-validate — storage written by an older build can hold null/malformed rows.
+        history = Array.isArray(parsed) ? parsed.filter(function (m) {
+            return m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string';
+        }) : [];
     } catch (e) { history = []; }
     sid = localStorage.getItem(SESSION_KEY) || null;
 }
@@ -176,14 +205,15 @@ function clearHistory() {
 }
 ```
 
-**Init order** — load before connecting so `sid` is reused server-side:
+**Init order** — load before connecting so `sid` is reused server-side. Guard the history paint and the hub init so `wireUI()`/`setSend()` **always** run — an unguarded throw there leaves the widget with zero listeners (drawer dead, Send never enables):
 
 ```js
 document.addEventListener('DOMContentLoaded', function () {
     loadHistory();
-    renderHistory();
-    initHub();
+    try { renderHistory(); } catch (e) { console.warn('[chat] history render failed', e); }
     wireUI();
+    setSend();
+    try { initHub(); } catch (e) { console.warn('[chat] hub init failed', e); }   // e.g. SignalR CDN blocked
 });
 ```
 
@@ -192,28 +222,30 @@ document.addEventListener('DOMContentLoaded', function () {
 ```js
 function send(message) {
     if (busy || !message.trim()) return;
-    busy = true;
+    busy = true; setSend();
     sid = sid || crypto.randomUUID();
     history.push({ role: 'user', text: message, ts: Date.now() });
     persistHistory();
+    armWatchdog();
     hub.invoke('AskAI', message, sid, null, null, null)
-       .catch(function () { busy = false; });
+       .catch(function () { endTurn(); });
 }
 
 function onComplete(vm) {
-    var ok       = !vm || vm.success !== false;
-    var fallback = (vm && (vm.content || vm.Content)) || '';
-    var finalText;
-    if (!ok) {
-        finalText = (vm && (vm.error || vm.Error)) || 'AI request failed.';
-        if (bubble) bubble.textContent = finalText;
-    } else {
-        finalText = rawText || fallback;
-        if (bubble) bubble.innerHTML = fmt(finalText);
-        history.push({ role: 'assistant', text: finalText, ts: Date.now() });
-        persistHistory();   // ← persist only the final text, not chunks
-    }
-    rawText = ''; bubble = null; busy = false;
+    try {
+        var ok       = !vm || vm.success !== false;
+        var fallback = (vm && (vm.content || vm.Content)) || '';
+        var finalText;
+        if (!ok) {
+            finalText = (vm && (vm.error || vm.Error)) || 'AI request failed.';
+            if (bubble) bubble.textContent = finalText;
+        } else {
+            finalText = rawText || fallback;
+            if (bubble) bubble.innerHTML = fmt(finalText);
+            history.push({ role: 'assistant', text: finalText, ts: Date.now() });
+            persistHistory();   // ← persist only the final text, not chunks
+        }
+    } finally { endTurn(); }
 }
 ```
 
@@ -223,18 +255,21 @@ function onComplete(vm) {
 
 ## Markdown rendering (JS only)
 
-Add `marked.js` after the SignalR CDN in the content field:
+Add `marked.js` after the SignalR CDN in the content field — **pin the exact version and add `crossorigin="anonymous"`** (an unpinned "latest" can drift to a release that no longer ships the root file; the 404 body runs as script and every page logs an opaque `Script error.`):
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous"></script>
 ```
+
+`fmt()` is the single render choke point (streaming, completion, history) — coerce to string **first** (`marked.parse` throws on `null`/`undefined`) and fall back to escaped plain text if `marked` is missing or throws:
 
 ```js
 function fmt(t) {
-    if (typeof marked !== 'undefined') {
-        return marked.parse(t, { breaks: true, gfm: true });
+    var s = (t === null || t === undefined) ? '' : String(t);
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+        try { return marked.parse(s, { breaks: true, gfm: true }); } catch (e) { /* fall through */ }
     }
-    return String(t)
+    return s
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/\n/g,'<br>');
 }
@@ -367,7 +402,7 @@ After deploying the widget template and the page that includes it, verify with P
 | Trigger button visible | button rendered in corner | page blank or button missing |
 | Hub connects | no `negotiate` 401 / parse error in console | red error, login form shown unexpectedly |
 | Streaming reply | bubble fills with text as chunks arrive | spinner hangs, bubble stays empty |
-| `onComplete` fires | busy flag clears, input re-enables | input stays disabled after response |
+| `onComplete` fires | busy flag clears (via `endTurn()`), input re-enables | input stays disabled after response |
 | localStorage written | `mix_chat_history` key exists after send | key absent |
 | `marked.js` renders | reply is formatted HTML (bold, code) | raw `**` markdown text |
 | New chat button | clears bubbles AND `mix_chat_history` / `mix_chat_session_id` | old messages persist on reload |
@@ -403,6 +438,10 @@ console.assert(history !== null, 'mix_chat_history should be set after a message
 | `@@microsoft` visible in page source | `@` not escaped in template | Double every `@` in CDN URLs in the content field |
 | Reply renders as raw markdown | `marked.js` not loaded or loaded after the script that calls `fmt()` | Move marked CDN `<script>` before the widget `<script>` |
 | "New chat" leaves history on reload | `clearHistory()` not calling server | Ensure `clearHistory()` calls `hub.invoke('ClearHistory', oldSid)` AND wipes localStorage |
+| Send stays disabled after a reply/error | Busy reset after render calls, or a terminal path that never resets | Route every terminal path through `endTurn()` (try/catch/finally), plus `hub.onclose` and the idle watchdog |
+| Widget dead from page load (no listeners) | Unguarded `renderHistory()`/`initHub()` threw before `wireUI()` | Wrap both in `try/catch` — `wireUI()` + `setSend()` must always run |
+| `marked(): input parameter is undefined or null` | `fmt()` got `null` (missing content or a poisoned stored row) | Coerce in `fmt()` + `try/catch`; shape-validate history after `JSON.parse` so old storage self-heals |
+| Every page logs `Script error.` | Unpinned/404 CDN script served cross-origin | Pin CDN versions; add `crossorigin="anonymous"` |
 
 ---
 
@@ -412,9 +451,7 @@ A "New chat" button must clear both UI state AND persisted storage — otherwise
 
 ```js
 function onNewChat() {
-    rawText = '';
-    bubble  = null;
-    busy    = false;
+    endTurn();                      // the single busy/watchdog reset
     clearHistory();                 // wipes localStorage + in-memory history + sid + server-side conversation
     msgs.innerHTML = '';            // clear rendered bubbles
 }
@@ -431,7 +468,10 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - [ ] Hub URL is `/hubs/site-knowledge`
 - [ ] Token read from `localStorage['mix_access_token']`
 - [ ] `hub.invoke('AskAI', message, sessionId, null, null, null)` — **5 args** (provider/model/thinking passed as `null`). SignalR ignores C# default values, so a short arg list (e.g. just `message`) fails binding → "cannot invoke AskAI"
-- [ ] `marked.js` CDN added for markdown rendering — `rawText` accumulator used (not `bubble.textContent`)
+- [ ] `marked.js` CDN added for markdown rendering — version pinned + `crossorigin="anonymous"`; `rawText` accumulator used (not `bubble.textContent`)
+- [ ] `fmt()` coerces its argument to a string first and wraps `marked.parse` in `try/catch` (plain-text fallback)
+- [ ] One `endTurn()` is the only busy reset — `onComplete`/`onError` (`finally`), invoke rejection, `hub.onclose`, idle watchdog (re-armed per chunk), New chat
+- [ ] `renderHistory()` and `initHub()` are `try/catch`-guarded so `wireUI()`/`setSend()` always run; persisted history is shape-validated after `JSON.parse`
 - [ ] `connect()` always attempts `hub.start()` — **no gate-first / no token pre-check**; the login gate is shown by `handleConnectError`, only when the connection fails
 - [ ] Auth-failure detection gates on a real auth signal — `statusCode === 401` (primary) **or** an HTML-login redirect (`DOCTYPE` / parse error); network / 500 / proxy errors show a generic error, not the login gate
 - [ ] Sign-in renders as a full-cover gate overlaying the whole drawer (covers messages + input), hidden on successful connect/login — not an inline bubble
@@ -461,6 +501,9 @@ Also call `clearHistory()` from your sign-out / token-rotation flow.
 - Never connect to `/hubs/llm` for site-knowledge chat — that hub uses a different agent pipeline
 - Never skip `window.beforeunload → hub.stop()` — dangling WebSocket connections accumulate
 - Never render `ReceiveComplete` content when `vm.success === false` — always check first and show the error field instead
+- Never reset the busy flag anywhere but `endTurn()`, and never put the reset after render calls without a `finally`
+- Never pass a possibly-`null` value straight to `marked.parse` — `fmt()` coerces first
+- Never trust `JSON.parse(localStorage…)` output's shape — filter to `{role: 'user'|'assistant', text: string}`
 - Never persist inside `onChunk` — you'll write to localStorage on every token and may save half-streamed text if the user reloads mid-stream
 - Never persist the streaming bubble's `innerHTML` — store the raw markdown source (`rawText || fallback`), and re-render with `fmt()` on load
 - Never call `initHub()` before `loadHistory()` — the persisted `sid` must be in place so the server treats the connection as a continuation
