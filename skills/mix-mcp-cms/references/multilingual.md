@@ -20,10 +20,11 @@ Mixcore MCP tools use non-obvious naming. **Always clarify which one the user me
 
 🚨 **CRITICAL RULE: never start translating or editing a multilingual template before completing these checks.** Skipping them is the cause of "the page title changed but the labels didn't", duplicate-slug 400s, switcher 404s, blank module regions, and untranslated MixDB content.
 
-1. **Check the existing cultures.** Call `list_cultures`. Is the tenant single- or multi-culture, and what are the exact codes (`en-us`, `vi-vn`)? The first culture is the default. A single-culture site applies no filtering — adding a 2nd culture is what turns multilingual on (§1). Use the full registered code everywhere — `en` ≠ `en-us` (§4).
+1. **Check the existing cultures.** Call `list_cultures`. Is the tenant single- or multi-culture, and what are the exact codes (`en-us`, `vi-vn`)? The first culture is the default. A single-culture site applies no filtering — adding a 2nd culture is what turns multilingual on (§1). Use the full registered code everywhere — `en` ≠ `en-us`, and never the culture's short alias (`nl` for `nl-nl`): codes match exactly and `?culture=nl` silently falls back (§4).
 2. **Check whether the template is already translated.** Read the master/page template. Does it use `@L["key"]` keys (translated, option 2 §6) or hardcoded literals / `@if (culture == "vi-vn")` branches (NOT translated — both are hardcoding, §6)? If not translated, localize it via `@L` + `set_language_content` before authoring per-culture content. Cross-check the keys exist with `list_languages`.
 3. **Check the switch-language URL rule.** Confirm each switcher link resolves **path → route key → that key's URL in the TARGET culture** (not `?culture=` appended to the current path — that 404s on per-culture slugs), that **every** switcher link **ALWAYS** ends with `?culture={specificulture}` (the target culture code — including the active-culture link), that **only** the switcher link carries `?culture=` (plain nav relies on the `mix_culture` cookie), and that culture is **never** a URL path segment (no `/en/` routing) (§5). The target-culture URL comes from the `nav.*.url` key via `L.GetKey(path)` (path → key) + `L.GetForCulture(key, culture)` (key → target-culture URL) — see §5.
 4. **Check the navigation URLs are translated.** Every regular nav / menu / footer link must localize **both label and URL** as language keys — `<a href="@(L["nav.menu.url"])">@(L["nav.menu"])</a>` — never a hardcoded `href="/menu"` (that 404s in vi). The `nav.*.url` key holds the active culture's full path (vi `/thuc-don`); links stay plain (no `?culture=`; the cookie holds the culture). A nav menu hardcoded to one culture's slugs is the most common multilingual break after the switcher itself (§6).
+5. **Every routable page has a URL key, and every language value is plain text.** Not only nav entries — each page path the switcher may be on needs a `*.url` key per culture whose value equals that culture's page slug (§5). Language values hold plain Unicode (`—`, `·`, `&`), never HTML entities (§7 3d).
 
 After `create_culture`, follow the post-create workflow: ensure templates render using `IMixLocalizer` → translate contents of new culture → translate language keys → verify templates. Content cloning and page-module associations are automatic (backend). See §7 "After creating a culture."
 
@@ -109,6 +110,8 @@ Canonical switcher — `GetKey` the current path, then `GetForCulture` each targ
 <a href="@(enPath)?culture=en-us" class="lang-link">EN</a>
 <a href="@(viPath)?culture=vi-vn" class="lang-link">VN</a>
 ```
+
+🚨 **Register a URL key for EVERY routable page path — not just the nav entries.** `GetKey(path)` returns `null` for any path with no matching key, so the switcher silently falls back to `/` on pages outside the menu (signed-in workspace pages, detail/landing pages). For each such page set a per-culture key (e.g. `nav.myrequests.url` = `/my-requests` in `en-us`, `/mijn-verzoeken` in `nl-nl`) and set that culture's page `seoName` to **exactly** the key's value, so path → key → target URL stays consistent. Verify the slug actually landed with `get_page_content_by_seo_name(seoName, specificulture)` before relying on it.
 
 🚨 **Every switcher link ALWAYS carries `?culture={specificulture}`** — the query string is the switcher's whole job and is **never** optional or conditional. Emit it on **every** language option, including the link for the **currently-active** culture (so re-clicking the active language re-forces it and refreshes the `mix_culture` cookie). `{specificulture}` is the **target** culture's full registered code (`en-us`, `vi-vn`) — the culture that link switches *to*, not the current one. A switcher link with no `?culture=` does nothing (falls through to the cookie/default) — if a link has no query string, it is not a switcher link.
 
@@ -201,6 +204,8 @@ update_page_content(
 ```
 Same for posts (`update_post_content`) and modules (`update_module_content`). Translate the `content` field (body HTML) — that's what the visitor sees.
 
+🚨 **Clones copy structure, not translation.** Each cloned page/post still carries the **source-language** title/excerpt/body, and its slug gets an auto `-{culture}` suffix (`about` → `about-nl-nl`). Rewrite every clone's text and set `seoName` to the translated slug — the same value as its `*.url` key in that culture (§5) — then confirm with `get_page_content_by_seo_name`.
+
 3d. **Translate every language key** for the new culture:
 ```
 set_language_content("nav.home", "vi-vn", "Trang Chủ")
@@ -210,6 +215,8 @@ set_language_content("nav.about.url", "vi-vn", "/gioi-thieu")
 // ... one call per key per culture
 ```
 Use `list_languages` to see all existing keys; call `set_language_content` for each key+culture pair (creates the key on demand — just pass the name, culture, and value).
+
+🚨 **Store plain Unicode in language values — never HTML entities.** `@(L["key"])` HTML-encodes its output, so a stored `&mdash;` / `&amp;` renders as literal entity text. Store `—`, `·`, `&` directly (check an existing key with `get_language_contents` to confirm the convention) and re-save any entity-containing value. Values that will be emitted inside a `<script>` block must also avoid `'`, `"`, `\`, `&` and `<` — `validate_template` cannot see the resulting JS syntax error.
 
 3e. **Handle MixDB tables with a `specificulture` column.** For any table whose displayed text differs per culture (§3b):
 

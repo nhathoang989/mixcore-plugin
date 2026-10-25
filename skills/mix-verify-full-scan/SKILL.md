@@ -71,9 +71,11 @@ browser_console_messages level=error        # must be clean
 
 **Attribution guard:** wait for the page to actually finish loading before snapshotting/reading console — a slow page (CDN scripts, fonts) probed too early yields the PREVIOUS page's state attributed to the current URL. If a page doesn't reach load-complete within ~15s, record a `render`/`medium` finding ("did not finish loading — in-page checks skipped") and move on rather than mis-attributing.
 
+**Expected false positive — redirecting pages.** The scanner measures the *destination*, so a page that navigates away before load completes also reports "did not finish loading within 15s": auth-gated pages whose force-login gate sends the anonymous crawler to `/login?next=…`, `/login` itself when the visitor is already signed in (role-landing redirect), and any page whose client script redirects on load. Disposition these as **accepted-as-expected** — no template change.
+
 **Broken-link findings (`broken-link`):** every internal link collected during crawl gets HEAD-checked ONCE (dedupe across the whole scan — a link on 5 pages is checked once); a non-200 (404/500) is a finding. External links: skip by default (out of scope — this scans the site, not the internet) unless the user asks for external-link checking too.
 
-**Dead-link findings (`dead-link`):** links that go nowhere by construction — raw `href="#"`, empty `href`, `javascript:` handlers with no navigation, and `#anchor` fragments whose target id doesn't exist in the document. Common in LLM-generated nav bars ("Home/About/Contact" all `#`). Severity `medium`.
+**Dead-link findings (`dead-link`):** links that go nowhere by construction — raw `href="#"`, empty `href`, `javascript:` handlers with no navigation, and `#anchor` fragments whose target id doesn't exist in the document. Common in LLM-generated nav bars ("Home/About/Contact" all `#`). Severity `medium`. A JS-injected `<a href="#" onclick="signOut()">` is flagged too, even though the handler works — fix it by giving the anchor a real target (e.g. `href="/login"`) and making the handler redirect to that same route.
 
 **Favicon finding (`favicon`):** check ONCE per scan (site-level, first page wins). If the page declares `<link rel="icon">` (or `shortcut icon` / `apple-touch-icon`), HEAD-check the same-origin href — a 404 is `medium` ("declared but missing"). If nothing is declared, HEAD-check the browser fallback `/favicon.ico` — a 404 is `low` ("no favicon at all"). `data:` and external-CDN favicons: skip.
 
