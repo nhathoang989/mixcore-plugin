@@ -11,6 +11,7 @@ You are implementing **AI chat backend functions** for Mixcore CMS — the Signa
 - **Not covered here:** Drawer/overlay HTML structure, CSS layout, trigger button HTML, header button HTML/CSS. For UI implementation invoke the **`mixcore:mix-mcp-cms`** skill (it owns Razor templates and CSS-in-content-field).
 - **Full copy-paste widget (CSS + HTML + assembled skeleton):** [references/chat-widget.md](references/chat-widget.md) — the UI/markup half; the JS inside its skeleton is the same wiring this skill documents below.
 - **Hub integration reference (incl. the server-side `LoadHistory` persistence alternative and the typed `ReceiveEvent` stream):** [references/ai-chat-widget.md](references/ai-chat-widget.md).
+- **Portal Ask AI panel — image and voice input** (attach/paste/drop images, record voice, vision-model routing, speech-to-text setup, dictation language): [references/portal-chat-attachments.md](references/portal-chat-attachments.md).
 
 ---
 
