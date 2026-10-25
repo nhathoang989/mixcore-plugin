@@ -29,11 +29,13 @@ Files upload to a **private** store readable only by the uploading user in their
 |---|---|---|
 | OpenAI | `gpt-4o-transcribe` or `whisper-1` | optional (defaults to OpenAI) |
 | Groq | `whisper-large-v3` | **required**: `https://api.groq.com/openai/v1` |
+| OpenRouter | `openai/whisper-1` (no `~` prefix) | **required**: `https://openrouter.ai/api/v1` |
 
   A non-OpenAI credential without a Base URL is never used for speech-to-text (its key is not sent to OpenAI).
 - The language is auto-detected by the model (Whisper-family models handle Vietnamese and most languages); no language setting is needed.
 - No STT model → the mic falls back to **browser dictation**: speech becomes text in the input box, in the **browser's language** (`navigator.language`). Speaking Vietnamese with an English browser gives garbled text — set the browser/OS language, or configure an STT model.
 - Silence/blank recordings are rejected: `I couldn't hear anything in that recording.` Missing STT for a recorded clip: `Voice messages need a speech-to-text model. Set a Default STT model in AI Settings.`
+- Provider rejections show the provider's reason: `Speech-to-text failed: {message}` (e.g. `Model ~openai/whisper-1 does not exist` → fix the model name in AI Settings).
 
 ## Answering user questions
 
